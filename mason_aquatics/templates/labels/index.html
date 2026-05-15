@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+{% block title %}Tank Labels — Mason Aquatics{% endblock %}
+
+{% block head %}
+<style>
+  /* ── Summary strip ──────────────────────────────────────────────── */
+  .label-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .ls-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.1rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ls-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+    border-radius: 8px 8px 0 0;
+  }
+
+  .ls-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+  }
+
+  .ls-value {
+    font-size: 1.9rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .ls-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+  /* ── Species table ─────────────────────────────────────────────── */
+  .species-thumb {
+    width: 44px;
+    height: 44px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+
+  .species-thumb-placeholder {
+    width: 44px;
+    height: 44px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 1rem;
+  }
+
+  /* ── Label preview callout ──────────────────────────────────────── */
+  .label-info-banner {
+    background: linear-gradient(135deg, rgba(33,150,243,0.08), rgba(33,150,243,0.03));
+    border: 1px solid rgba(33,150,243,0.25);
+    border-radius: 8px;
+    padding: 0.85rem 1.1rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .label-info-banner i { color: var(--accent); font-size: 1.1rem; margin-top: 0.1rem; }
+
+  /* ── Batch select ───────────────────────────────────────────────── */
+  .batch-toolbar {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.85rem 1.25rem;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .batch-count {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+
+  /* ── Empty state ────────────────────────────────────────────────── */
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-muted);
+  }
+
+  .empty-state i {
+    font-size: 3rem;
+    color: var(--border);
+    margin-bottom: 1rem;
+    display: block;
+  }
+
+  /* ── Checkbox styling ───────────────────────────────────────────── */
+  input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1><i class="fa-solid fa-tag" style="color:var(--accent)"></i> Tank Labels</h1>
+    <div class="breadcrumb">Reports · QR Codes &amp; Printable Labels</div>
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="label-summary">
+  <div class="ls-card">
+    <div class="ls-label">Species</div>
+    <div class="ls-value">{{ species_list | length }}</div>
+    <div class="ls-sub">available to label</div>
+  </div>
+  <div class="ls-card">
+    <div class="ls-label">With Photos</div>
+    <div class="ls-value">{{ species_list | selectattr('display_photo') | list | length }}</div>
+    <div class="ls-sub">labels include photo</div>
+  </div>
+</div>
+
+<!-- Info banner -->
+<div class="label-info-banner">
+  <i class="fa-solid fa-circle-info"></i>
+  <div style="flex:1;">
+    <strong style="font-size:0.88rem; color:var(--text-heading);">About Tank Labels</strong>
+    <div style="font-size:0.82rem; color:var(--text-muted); margin-top:0.3rem; line-height:1.6;">
+      Each label is a 99×57mm PDF sized for standard sticky labels (e.g. Avery L7636).
+      It includes the species photo, common name, scientific name in italic, temperature range,
+      and a QR code linking to the public species info page.
+      Generate single labels or select multiple for a batch PDF.
+    </div>
+  </div>
+</div>
+
+{% if species_list %}
+
+<!-- Batch form -->
+<form method="POST" action="{{ url_for('labels.batch_labels') }}" id="batchForm">
+  <div class="batch-toolbar">
+    <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; cursor:pointer; font-weight:500;">
+      <input type="checkbox" id="selectAll" onchange="toggleAll(this)" />
+      Select All
+    </label>
+    <span class="batch-count" id="selectedCount">0 selected</span>
+    <button type="submit" class="btn btn-primary btn-sm" style="margin-left:auto"
+            id="batchBtn" disabled>
+      <i class="fa-solid fa-file-pdf"></i> Download Batch PDF
+    </button>
+  </div>
+
+  <!-- Species table -->
+  <div class="card" style="padding:0; overflow:hidden;">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:40px; padding-left:1rem;"></th>
+            <th style="width:52px"></th>
+            <th>Common Name</th>
+            <th>Scientific Name</th>
+            <th>Tank</th>
+            <th>Temp Range</th>
+            <th style="width:220px">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in species_list %}
+          <tr>
+            <!-- Batch checkbox -->
+            <td style="padding-left:1rem;">
+              <input type="checkbox" name="species_ids" value="{{ s.id }}"
+                     class="species-checkbox" onchange="updateCount()" />
+            </td>
+
+            <!-- Thumbnail -->
+            <td style="padding:0.5rem 0.5rem 0.5rem 1rem;">
+              {% if s.display_photo %}
+              <img src="{{ url_for('static', filename='uploads/photos/' ~ s.display_photo) }}"
+                   alt="{{ s.common_name }}"
+                   class="species-thumb" />
+              {% else %}
+              <div class="species-thumb-placeholder">
+                <i class="fa-solid fa-fish"></i>
+              </div>
+              {% endif %}
+            </td>
+
+            <!-- Common name -->
+            <td>
+              <a href="{{ url_for('species.detail', species_id=s.id) }}"
+                 style="font-weight:600; color:var(--text-heading); text-decoration:none;">
+                {{ s.common_name }}
+              </a>
+            </td>
+
+            <!-- Scientific name -->
+            <td><em class="scientific">{{ s.scientific_name or '—' }}</em></td>
+
+            <!-- Tank -->
+            <td>
+              {% if s.tank_idc %}
+              <span class="badge badge-info">{{ s.tank_idc }}</span>
+              {% else %}<span style="color:var(--text-muted)">—</span>{% endif %}
+            </td>
+
+            <!-- Temp range -->
+            <td style="white-space:nowrap; font-size:0.875rem;">
+              {% if s.min_temp_c or s.max_temp_c %}
+                {{ s.min_temp_c | int if s.min_temp_c else '?' }}°–{{ s.max_temp_c | int if s.max_temp_c else '?' }}°C
+              {% else %}—{% endif %}
+            </td>
+
+            <!-- Actions -->
+            <td>
+              <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+                <!-- Public page link -->
+                <a href="{{ url_for('public.species_page', species_id=s.id) }}"
+                   target="_blank" rel="noopener"
+                   class="btn btn-secondary btn-sm"
+                   title="View public species page">
+                  <i class="fa-solid fa-globe"></i> View Page
+                </a>
+                <!-- Download QR -->
+                <a href="{{ url_for('labels.download_qr', species_id=s.id) }}"
+                   class="btn btn-secondary btn-sm"
+                   title="Download QR code PNG">
+                  <i class="fa-solid fa-qrcode"></i> QR Code
+                </a>
+                <!-- Download label PDF -->
+                <a href="{{ url_for('labels.generate_label', species_id=s.id) }}"
+                   class="btn btn-primary btn-sm"
+                   title="Download tank label PDF">
+                  <i class="fa-solid fa-file-pdf"></i> Label
+                </a>
+              </div>
+            </td>
+
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</form>
+
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <i class="fa-solid fa-tag"></i>
+    <p>No species have been added yet.</p>
+    <a href="{{ url_for('species.add_species') }}" class="btn btn-primary">
+      <i class="fa-solid fa-plus"></i> Add Your First Species
+    </a>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function updateCount() {
+    const checked = document.querySelectorAll('.species-checkbox:checked').length;
+    document.getElementById('selectedCount').textContent = `${checked} selected`;
+    document.getElementById('batchBtn').disabled = checked === 0;
+    document.getElementById('selectAll').indeterminate =
+      checked > 0 && checked < document.querySelectorAll('.species-checkbox').length;
+    document.getElementById('selectAll').checked =
+      checked === document.querySelectorAll('.species-checkbox').length;
+  }
+
+  function toggleAll(cb) {
+    document.querySelectorAll('.species-checkbox').forEach(c => c.checked = cb.checked);
+    updateCount();
+  }
+</script>
+{% endblock %}

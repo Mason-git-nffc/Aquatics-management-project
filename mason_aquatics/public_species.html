@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ species.common_name }} — Mason Aquatics</title>
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+        crossorigin="anonymous" />
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet" />
+
+  <style>
+    :root {
+      --accent:  #2196F3;
+      --success: #1a7f37;
+      --muted:   #57606a;
+      --border:  #d0d7de;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #f4f6f8;
+      color: #1f2328;
+      min-height: 100vh;
+    }
+
+    /* ── Top banner ──────────────────────────────────────────────── */
+    .top-banner {
+      background: var(--accent);
+      color: #fff;
+      padding: 0.75rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .top-banner .logo {
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .top-banner .sub {
+      font-size: 0.78rem;
+      opacity: 0.85;
+    }
+
+    /* ── Page wrapper ────────────────────────────────────────────── */
+    .page-wrap {
+      max-width: 700px;
+      margin: 1.5rem auto;
+      padding: 0 1rem 2rem;
+    }
+
+    /* ── Hero card ───────────────────────────────────────────────── */
+    .hero-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+
+    .hero-photo-wrap {
+      width: 100%;
+      max-height: 360px;
+      overflow: hidden;
+      background: #f0f2f5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hero-photo-wrap img {
+      width: 100%;
+      object-fit: cover;
+      max-height: 360px;
+      display: block;
+    }
+
+    .hero-photo-placeholder {
+      height: 220px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #adb5bd;
+      gap: 0.5rem;
+    }
+
+    .hero-photo-placeholder i { font-size: 4rem; }
+
+    .hero-body {
+      padding: 1.5rem 1.5rem 1.25rem;
+    }
+
+    .species-name {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #0d1117;
+      line-height: 1.2;
+      margin-bottom: 0.25rem;
+    }
+
+    .species-sci {
+      font-size: 1.1rem;
+      font-style: italic;
+      color: var(--muted);
+      margin-bottom: 1.25rem;
+    }
+
+    /* ── Parameter pills ─────────────────────────────────────────── */
+    .param-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .param-pill {
+      background: #f0f2f5;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.55rem 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      min-width: 100px;
+    }
+
+    .param-pill .p-label {
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      margin-bottom: 0.2rem;
+    }
+
+    .param-pill .p-value {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #0d1117;
+    }
+
+    .param-pill .p-value.accent { color: var(--accent); }
+
+    /* ── Native origin link ──────────────────────────────────────── */
+    .origin-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.85rem;
+      color: var(--accent);
+      text-decoration: none;
+      padding: 0.35rem 0;
+    }
+
+    .origin-link:hover { text-decoration: underline; }
+
+    /* ── Photo gallery ───────────────────────────────────────────── */
+    .gallery-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+
+    .gallery-card h2 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #0d1117;
+      margin-bottom: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 0.65rem;
+    }
+
+    .photo-item {
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      aspect-ratio: 1;
+      cursor: pointer;
+      background: #f0f2f5;
+    }
+
+    .photo-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.2s;
+    }
+
+    .photo-item:hover img { transform: scale(1.06); }
+
+    /* ── Lightbox ─────────────────────────────────────────────────── */
+    .lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.9);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .lightbox.open { display: flex; }
+
+    .lightbox img {
+      max-width: 92vw;
+      max-height: 80vh;
+      object-fit: contain;
+      border-radius: 6px;
+      display: block;
+    }
+
+    .lb-close {
+      position: fixed;
+      top: 1rem;
+      right: 1.25rem;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.25);
+      color: #fff;
+      font-size: 1.3rem;
+      cursor: pointer;
+      border-radius: 6px;
+      padding: 0.3rem 0.65rem;
+      z-index: 1001;
+    }
+
+    .lb-caption {
+      color: rgba(255,255,255,0.75);
+      font-size: 0.875rem;
+      text-align: center;
+      max-width: 500px;
+    }
+
+    /* ── Footer ──────────────────────────────────────────────────── */
+    .pub-footer {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+      padding-top: 0.5rem;
+    }
+
+    .pub-footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    /* ── Responsive ──────────────────────────────────────────────── */
+    @media (max-width: 480px) {
+      .species-name { font-size: 1.4rem; }
+      .photo-grid   { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Top banner -->
+<div class="top-banner">
+  <i class="fa-solid fa-fish"></i>
+  <div>
+    <div class="logo">Mason Aquatics</div>
+    <div class="sub">Species Information</div>
+  </div>
+</div>
+
+<div class="page-wrap">
+
+  <!-- Hero card -->
+  <div class="hero-card">
+
+    <!-- Primary photo -->
+    <div class="hero-photo-wrap">
+      {% if species.display_photo %}
+      <img src="{{ url_for('static', filename='uploads/photos/' ~ species.display_photo) }}"
+           alt="{{ species.common_name }}"
+           onclick="openLightbox('{{ url_for('static', filename='uploads/photos/' ~ species.display_photo) }}', '')" />
+      {% else %}
+      <div class="hero-photo-placeholder">
+        <i class="fa-solid fa-fish"></i>
+        <span style="font-size:0.85rem">No photo available</span>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="hero-body">
+      <div class="species-name">{{ species.common_name }}</div>
+      <div class="species-sci">{{ species.scientific_name or '' }}</div>
+
+      <!-- Parameter strip -->
+      <div class="param-strip">
+        {% if species.min_temp_c is not none or species.max_temp_c is not none %}
+        <div class="param-pill">
+          <div class="p-label"><i class="fa-solid fa-temperature-half"></i> Temperature</div>
+          <div class="p-value accent">
+            {{ species.min_temp_c | int if species.min_temp_c is not none else '?' }}°
+            –
+            {{ species.max_temp_c | int if species.max_temp_c is not none else '?' }}°C
+          </div>
+        </div>
+        {% endif %}
+
+        {% if species.ideal_ph is not none %}
+        <div class="param-pill">
+          <div class="p-label"><i class="fa-solid fa-flask"></i> Ideal pH</div>
+          <div class="p-value accent">{{ species.ideal_ph }}</div>
+        </div>
+        {% endif %}
+
+        {% if species.reproduction_type %}
+        <div class="param-pill">
+          <div class="p-label"><i class="fa-solid fa-egg"></i> Reproduction</div>
+          <div class="p-value" style="font-size:0.88rem">{{ species.reproduction_type }}</div>
+        </div>
+        {% endif %}
+
+        {% if species.tank_idc %}
+        <div class="param-pill">
+          <div class="p-label"><i class="fa-solid fa-water"></i> Tank</div>
+          <div class="p-value">{{ species.tank_idc }}</div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Native to / weather link -->
+      {% if species.native_to %}
+      <div style="margin-bottom:0.75rem;">
+        <span style="font-size:0.82rem; color:var(--muted);">
+          <i class="fa-solid fa-earth-europe"></i> Native to:
+        </span>
+        {% if species.weather_link %}
+        <a href="{{ species.weather_link }}" target="_blank" rel="noopener" class="origin-link">
+          {{ species.native_to }}
+          <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:0.7rem"></i>
+        </a>
+        {% else %}
+        <span style="font-size:0.85rem; margin-left:0.3rem;">{{ species.native_to }}</span>
+        {% endif %}
+      </div>
+      {% endif %}
+
+    </div><!-- .hero-body -->
+  </div><!-- .hero-card -->
+
+  <!-- Photo gallery -->
+  {% set gallery_photos = species.photos %}
+  {% if gallery_photos %}
+  <div class="gallery-card">
+    <h2>
+      <i class="fa-solid fa-images" style="color:var(--accent)"></i>
+      Photo Gallery
+      <span style="font-weight:400; color:var(--muted); font-size:0.8rem; margin-left:0.25rem;">
+        ({{ gallery_photos | length }} photo{{ 's' if gallery_photos | length != 1 else '' }})
+      </span>
+    </h2>
+
+    <div class="photo-grid">
+      {% for photo in gallery_photos %}
+      <div class="photo-item"
+           onclick="openLightbox('{{ url_for('static', filename='uploads/photos/' ~ photo.filename) }}', '{{ photo.caption or '' }}')">
+        <img src="{{ url_for('static', filename='uploads/photos/' ~ photo.filename) }}"
+             alt="{{ photo.caption or species.common_name }}"
+             loading="lazy" />
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Footer -->
+  <div class="pub-footer">
+    <i class="fa-solid fa-fish"></i>
+    Mason Aquatics — Fish Room Management System
+  </div>
+
+</div><!-- .page-wrap -->
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lb-close" onclick="closeLightbox()">
+    <i class="fa-solid fa-xmark"></i>
+  </button>
+  <img id="lbImg" src="" alt="" onclick="event.stopPropagation()" />
+  <div class="lb-caption" id="lbCaption"></div>
+</div>
+
+<script>
+  function openLightbox(src, caption) {
+    document.getElementById('lbImg').src = src;
+    document.getElementById('lbCaption').textContent = caption || '';
+    document.getElementById('lightbox').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeLightbox();
+  });
+</script>
+</body>
+</html>

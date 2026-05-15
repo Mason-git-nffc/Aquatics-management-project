@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block title %}Tanks — Mason Aquatics{% endblock %}
+
+{% block head %}
+<style>
+  /* ── Tank grid ──────────────────────────────────────────────────── */
+  .tank-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.875rem;
+  }
+
+  .tank-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.1rem;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .tank-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--border);
+    transition: background 0.15s;
+  }
+
+  .tank-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+    text-decoration: none;
+  }
+
+  .tank-card:hover::before {
+    background: var(--accent);
+  }
+
+  .tank-card.in-use::before {
+    background: var(--success);
+  }
+
+  .tank-card.in-use {
+    border-color: rgba(63,185,80,0.35);
+  }
+
+  .tank-idc-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+  }
+
+  .tank-idc-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-heading);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tank-volume {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+
+  .tank-species-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    border-top: 1px solid var(--border);
+    padding-top: 0.5rem;
+    margin-top: 0.25rem;
+  }
+
+  .tank-species-item {
+    font-size: 0.78rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tank-species-item .sci {
+    font-style: italic;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+  }
+
+  .tank-empty-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+    padding-top: 0.5rem;
+    margin-top: 0.25rem;
+  }
+
+  .tank-test-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--success);
+    display: inline-block;
+    margin-right: 0.3rem;
+  }
+
+  .tank-last-test {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+  }
+
+  /* Stats bar */
+  .tanks-summary {
+    display: flex;
+    gap: 1.5rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.85rem 1.25rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+  }
+
+  .summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .summary-val {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .summary-label {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .summary-divider {
+    width: 1px;
+    background: var(--border);
+    margin: 0 0.5rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1><i class="fa-solid fa-water" style="color:var(--accent)"></i> Tanks</h1>
+    <div class="breadcrumb">Tank Management · All Tanks</div>
+  </div>
+</div>
+
+<!-- Summary strip -->
+{% set in_use_count = species_by_tank | length %}
+{% set total_fish = namespace(n=0) %}
+{% for tank in tanks %}
+  {% set sp_list = species_by_tank.get(tank.tank_idc, []) %}
+  {% for s in sp_list %}
+    {% set total_fish.n = total_fish.n + s.current_stock %}
+  {% endfor %}
+{% endfor %}
+
+<div class="tanks-summary">
+  <div class="summary-item">
+    <div class="summary-val">{{ tanks | length }}</div>
+    <div class="summary-label">Total Tanks</div>
+  </div>
+  <div class="summary-divider"></div>
+  <div class="summary-item">
+    <div class="summary-val" style="color:var(--success)">{{ in_use_count }}</div>
+    <div class="summary-label">In Use</div>
+  </div>
+  <div class="summary-divider"></div>
+  <div class="summary-item">
+    <div class="summary-val" style="color:var(--text-muted)">{{ tanks | length - in_use_count }}</div>
+    <div class="summary-label">Empty</div>
+  </div>
+  <div class="summary-divider"></div>
+  <div class="summary-item">
+    <div class="summary-val">{{ total_fish.n }}</div>
+    <div class="summary-label">Total Fish</div>
+  </div>
+</div>
+
+<!-- Tank grid -->
+<div class="tank-grid">
+  {% for tank in tanks %}
+  {% set species_list = species_by_tank.get(tank.tank_idc, []) %}
+  {% set has_species = species_list | length > 0 %}
+
+  <a href="{{ url_for('tanks.detail', tank_idc=tank.tank_idc) }}"
+     class="tank-card {{ 'in-use' if has_species else '' }}">
+
+    <div>
+      <div class="tank-idc-label">Tank</div>
+      <div class="tank-idc-value">{{ tank.tank_idc }}</div>
+    </div>
+
+    {% if tank.volume_litres %}
+    <div class="tank-volume">
+      <i class="fa-solid fa-droplet" style="font-size:0.65rem"></i>
+      {{ tank.volume_litres | int }}L
+      {% if tank.location %}&nbsp;·&nbsp;{{ tank.location }}{% endif %}
+    </div>
+    {% elif tank.location %}
+    <div class="tank-volume">{{ tank.location }}</div>
+    {% endif %}
+
+    {% if has_species %}
+    <div class="tank-species-list">
+      {% for s in species_list[:3] %}
+      <div class="tank-species-item">
+        <i class="fa-solid fa-fish" style="font-size:0.6rem; color:var(--accent)"></i>
+        {{ s.common_name }}
+        <span class="sci">{{ s.scientific_name or '' }}</span>
+      </div>
+      {% endfor %}
+      {% if species_list | length > 3 %}
+      <div style="font-size:0.7rem; color:var(--text-muted)">
+        +{{ species_list | length - 3 }} more…
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="tank-empty-label">
+      <i class="fa-regular fa-circle-dot" style="font-size:0.65rem"></i> Empty
+    </div>
+    {% endif %}
+
+    {% if tank.latest_test %}
+    <div class="tank-last-test">
+      <span class="tank-test-dot"></span>
+      {{ tank.latest_test.test_date_display }}
+      {% if tank.latest_test.temperature_c %}
+      &nbsp;·&nbsp;{{ tank.latest_test.temperature_c }}°C
+      {% endif %}
+    </div>
+    {% endif %}
+
+  </a>
+  {% endfor %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,846 @@
+{% extends "base.html" %}
+{% block title %}{{ species.common_name }} — Mason Aquatics{% endblock %}
+
+{% block head %}
+<style>
+  /* ── Hero ──────────────────────────────────────────────────────── */
+  .species-hero {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    gap: 1.5rem;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+  }
+
+  .hero-photo {
+    width: 180px;
+    height: 180px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
+  .hero-photo-placeholder {
+    width: 180px;
+    height: 180px;
+    border-radius: 8px;
+    border: 2px dashed var(--border);
+    background: var(--bg-input);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .hero-photo-placeholder i { font-size: 3rem; }
+
+  .hero-info { flex: 1; min-width: 200px; }
+
+  .hero-name {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text-heading);
+    margin-bottom: 0.2rem;
+    line-height: 1.2;
+  }
+
+  .hero-scientific {
+    font-size: 1.05rem;
+    font-style: italic;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+
+  .hero-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .hero-stat {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.4rem 0.85rem;
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .hero-stat .stat-label-sm { color: var(--text-muted); font-size: 0.7rem; }
+  .hero-stat .stat-val-sm   { font-weight: 600; }
+  .hero-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+  /* ── Info grid ──────────────────────────────────────────────────── */
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .info-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+  }
+
+  .info-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+  }
+
+  .info-value {
+    font-size: 0.92rem;
+    color: var(--text-heading);
+    font-weight: 500;
+  }
+
+  /* ── Gallery ────────────────────────────────────────────────────── */
+  .photo-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .gallery-item {
+    position: relative;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    aspect-ratio: 1;
+    cursor: pointer;
+  }
+
+  .gallery-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.2s;
+    display: block;
+  }
+
+  .gallery-item:hover img { transform: scale(1.05); }
+
+  .gallery-item .gallery-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    opacity: 0;
+    transition: opacity 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+  }
+
+  .gallery-item:hover .gallery-overlay { opacity: 1; }
+
+  .gallery-overlay button, .gallery-overlay a {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #fff;
+    border-radius: 4px;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .gallery-primary-badge {
+    position: absolute;
+    top: 0.4rem;
+    left: 0.4rem;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 0.15rem 0.45rem;
+    border-radius: 3px;
+  }
+
+  /* ── Lightbox ─────────────────────────────────────────────────── */
+  .lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.88);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+
+  .lightbox.open { display: flex; }
+
+  .lightbox img {
+    max-width: 90vw;
+    max-height: 85vh;
+    object-fit: contain;
+    border-radius: 6px;
+  }
+
+  .lightbox-close {
+    position: absolute;
+    top: 1rem;
+    right: 1.25rem;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 1.75rem;
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  .lightbox-caption {
+    position: absolute;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,0.75);
+    font-size: 0.88rem;
+    text-align: center;
+  }
+
+  /* ── Inline forms ───────────────────────────────────────────────── */
+  .inline-form-wrap {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    display: none;
+    margin-bottom: 1rem;
+  }
+
+  .upload-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+
+  /* ── Breeding inline form grid ──────────────────────────────────── */
+  .breeding-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 2fr;
+    gap: 0.65rem;
+    margin-bottom: 0.65rem;
+  }
+
+  @media (max-width: 700px) {
+    .breeding-form-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ── Wharf price display ─────────────────────────────────────────── */
+  .price-tier {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.82rem;
+    margin: 0.2rem;
+  }
+
+  .price-tier .qty { font-weight: 700; color: var(--accent); }
+
+  /* ── Hatch rate mini bar ─────────────────────────────────────────── */
+  .hatch-bar-wrap { display: flex; align-items: center; gap: 0.4rem; }
+  .hatch-bar { flex:1; height:4px; background:var(--bg-input); border-radius:3px; overflow:hidden; min-width:40px; }
+  .hatch-bar-fill { height:100%; border-radius:3px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page header -->
+<div class="page-header">
+  <div>
+    <div class="breadcrumb">
+      <a href="{{ url_for('species.list_species') }}"
+         style="color:var(--text-muted); text-decoration:none;">Species</a>
+      &rsaquo; {{ species.common_name }}
+    </div>
+  </div>
+  <div style="display:flex; gap:0.5rem;">
+    <a href="{{ url_for('species.edit_species', species_id=species.id) }}" class="btn btn-secondary">
+      <i class="fa-solid fa-pen"></i> Edit
+    </a>
+    <a href="{{ url_for('species.list_species') }}" class="btn btn-secondary">
+      <i class="fa-solid fa-arrow-left"></i> Back
+    </a>
+  </div>
+</div>
+
+<!-- Hero -->
+<div class="species-hero">
+  {% if species.display_photo %}
+  <img src="{{ url_for('static', filename='uploads/photos/' ~ species.display_photo) }}"
+       alt="{{ species.common_name }}"
+       class="hero-photo"
+       onclick="openLightbox('{{ url_for('static', filename='uploads/photos/' ~ species.display_photo) }}', '')" />
+  {% else %}
+  <div class="hero-photo-placeholder">
+    <i class="fa-solid fa-fish"></i>
+    <span style="font-size:0.75rem">No photo</span>
+  </div>
+  {% endif %}
+
+  <div class="hero-info">
+    <div class="hero-name">{{ species.common_name }}</div>
+    <div class="hero-scientific">{{ species.scientific_name or '' }}</div>
+
+    <div class="hero-stats">
+      <!-- Stock -->
+      {% set stock = species.current_stock %}
+      <div class="hero-stat">
+        <i class="fa-solid fa-fish" style="color:var(--accent)"></i>
+        <div>
+          <div class="stat-label-sm">In Stock</div>
+          <div class="stat-val-sm"
+               style="font-size:1.1rem; color:{% if stock <= 0 %}var(--danger){% elif stock < 3 %}var(--warning){% else %}var(--success){% endif %}">
+            {{ stock }}
+          </div>
+        </div>
+      </div>
+
+      {% if species.tank_idc %}
+      <div class="hero-stat">
+        <i class="fa-solid fa-water" style="color:var(--accent)"></i>
+        <div>
+          <div class="stat-label-sm">Tank</div>
+          <div class="stat-val-sm">
+            <a href="{{ url_for('tanks.detail', tank_idc=species.tank_idc) }}"
+               style="color:inherit; text-decoration:none;">{{ species.tank_idc }}</a>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if species.min_temp_c or species.max_temp_c %}
+      <div class="hero-stat">
+        <i class="fa-solid fa-temperature-half" style="color:var(--accent)"></i>
+        <div>
+          <div class="stat-label-sm">Temperature</div>
+          <div class="stat-val-sm">
+            {{ species.min_temp_c | int if species.min_temp_c else '?' }}°–{{ species.max_temp_c | int if species.max_temp_c else '?' }}°C
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if species.ideal_ph %}
+      <div class="hero-stat">
+        <i class="fa-solid fa-flask" style="color:var(--accent)"></i>
+        <div>
+          <div class="stat-label-sm">Ideal pH</div>
+          <div class="stat-val-sm">{{ species.ideal_ph }}</div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if species.reproduction_type %}
+      <div class="hero-stat">
+        <i class="fa-solid fa-egg" style="color:var(--accent)"></i>
+        <div>
+          <div class="stat-label-sm">Reproduction</div>
+          <div class="stat-val-sm">{{ species.reproduction_type }}</div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Wharf prices -->
+    {% if species.wharf_prices %}
+    <div style="margin-bottom:0.75rem;">
+      <div style="font-size:0.7rem; font-weight:600; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.35rem;">
+        Wharf Sale Prices
+      </div>
+      {% for wp in species.wharf_prices %}
+      <span class="price-tier">
+        <span class="qty">{{ wp.quantity }}×</span>
+        <span>£{{ '%.2f' | format(wp.price_gbp) }}</span>
+        {% if wp.notes %}<span style="color:var(--text-muted)">· {{ wp.notes }}</span>{% endif %}
+      </span>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="hero-actions">
+      <a href="{{ url_for('species.edit_species', species_id=species.id) }}" class="btn btn-secondary btn-sm">
+        <i class="fa-solid fa-pen"></i> Edit Species
+      </a>
+      {% if species.weather_link %}
+      <a href="{{ species.weather_link }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
+        <i class="fa-solid fa-cloud-sun"></i> {{ species.native_to }} Weather
+      </a>
+      {% endif %}
+      <a href="{{ url_for('breeding.add_record', species_id=species.id) }}" class="btn btn-secondary btn-sm">
+        <i class="fa-solid fa-egg"></i> Add Breeding Record
+      </a>
+      <button class="btn btn-danger btn-sm"
+              onclick="confirmDelete({{ species.id }}, '{{ species.common_name | replace("'","\\'")}}')"
+              style="margin-left:auto">
+        <i class="fa-solid fa-trash"></i> Delete
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Info grid -->
+<div class="info-grid">
+  <div class="info-item">
+    <div class="info-label">Common Name</div>
+    <div class="info-value">{{ species.common_name }}</div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">Scientific Name</div>
+    <div class="info-value"><em>{{ species.scientific_name or '—' }}</em></div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">Native To</div>
+    <div class="info-value">
+      {% if species.native_to %}
+        {% if species.weather_link %}
+        <a href="{{ species.weather_link }}" target="_blank" rel="noopener"
+           style="color:var(--accent); text-decoration:none;">
+          {{ species.native_to }} <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:0.7rem"></i>
+        </a>
+        {% else %}{{ species.native_to }}{% endif %}
+      {% else %}—{% endif %}
+    </div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">Purchased From</div>
+    <div class="info-value">
+      {{ species.purchased_from or '—' }}
+      {% if species.purchased_from == 'Other' and species.purchased_from_notes %}
+        <span style="color:var(--text-muted)"> · {{ species.purchased_from_notes }}</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">Date Purchased</div>
+    <div class="info-value">{{ species.date_purchased_display or '—' }}</div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">Price Paid Per Fish</div>
+    <div class="info-value">
+      {% if species.price_per_fish_gbp %}£{{ '%.2f' | format(species.price_per_fish_gbp) }}{% else %}—{% endif %}
+    </div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">Quantity Bought</div>
+    <div class="info-value">{{ species.quantity_bought or '—' }}</div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">Current Stock</div>
+    <div class="info-value">
+      {% set stock = species.current_stock %}
+      <span style="color:{% if stock <= 0 %}var(--danger){% elif stock < 3 %}var(--warning){% else %}var(--success){% endif %}">
+        {{ stock }}
+        {% if stock <= 0 %}<i class="fa-solid fa-circle-xmark"></i>
+        {% elif stock < 3 %}<i class="fa-solid fa-triangle-exclamation"></i>
+        {% else %}<i class="fa-solid fa-check-circle"></i>{% endif %}
+      </span>
+    </div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">Tank IDC</div>
+    <div class="info-value">
+      {% if species.tank_idc %}
+      <a href="{{ url_for('tanks.detail', tank_idc=species.tank_idc) }}"
+         style="color:var(--accent); text-decoration:none;">{{ species.tank_idc }}</a>
+      {% else %}Unassigned{% endif %}
+    </div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">Temperature Range</div>
+    <div class="info-value">
+      {% if species.min_temp_c or species.max_temp_c %}
+        {{ species.min_temp_c }}°C – {{ species.max_temp_c }}°C
+      {% else %}—{% endif %}
+    </div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">Ideal pH</div>
+    <div class="info-value">{{ species.ideal_ph or '—' }}</div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">Reproduction</div>
+    <div class="info-value">{{ species.reproduction_type or '—' }}</div>
+  </div>
+</div>
+
+<!-- Gallery -->
+<div class="card" style="margin-bottom:1.25rem">
+  <div class="card-header">
+    <span class="card-title"><i class="fa-solid fa-images"></i> Photo Gallery</span>
+    <button class="btn btn-secondary btn-sm" onclick="toggleSection('uploadFormWrap')">
+      <i class="fa-solid fa-upload"></i> Upload Photo
+    </button>
+  </div>
+
+  <div class="inline-form-wrap" id="uploadFormWrap">
+    <form method="POST"
+          action="{{ url_for('species.upload_photo', species_id=species.id) }}"
+          enctype="multipart/form-data">
+      <div class="upload-row">
+        <div style="flex:1; min-width:180px;">
+          <label class="form-label">Select Photo</label>
+          <input type="file" name="photo" class="form-control" accept="image/*" required />
+        </div>
+        <div style="flex:1; min-width:150px;">
+          <label class="form-label">Caption (optional)</label>
+          <input type="text" name="caption" class="form-control" placeholder="Caption…" />
+        </div>
+        <div style="display:flex; align-items:center; gap:0.4rem; padding-bottom:0.1rem;">
+          <input type="checkbox" id="makePrimary" name="make_primary" value="1"
+                 style="width:14px; height:14px; accent-color:var(--accent);" />
+          <label for="makePrimary" style="font-size:0.82rem; white-space:nowrap;">Set as primary</label>
+        </div>
+        <div style="display:flex; gap:0.5rem; align-items:flex-end;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="toggleSection('uploadFormWrap')">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm">Upload</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  {% set gallery_photos = species.photos %}
+  {% if gallery_photos %}
+  <div class="photo-gallery">
+    {% for photo in gallery_photos %}
+    <div class="gallery-item"
+         onclick="openLightbox('{{ url_for('static', filename='uploads/photos/' ~ photo.filename) }}', '{{ photo.caption or '' }}')">
+      {% if photo.is_primary %}
+      <div class="gallery-primary-badge">Primary</div>
+      {% endif %}
+      <img src="{{ url_for('static', filename='uploads/photos/' ~ photo.filename) }}"
+           alt="{{ photo.caption or species.common_name }}" />
+      <div class="gallery-overlay" onclick="event.stopPropagation()">
+        {% if photo.caption %}
+        <span style="font-size:0.75rem; color:rgba(255,255,255,0.8); text-align:center; padding:0 0.5rem;">{{ photo.caption }}</span>
+        {% endif %}
+        <form method="POST"
+              action="{{ url_for('species.delete_photo', photo_id=photo.id) }}"
+              onsubmit="return confirm('Remove this photo?')">
+          <button type="submit" style="background:rgba(248,81,73,0.7); border-color:rgba(248,81,73,0.5);">
+            <i class="fa-solid fa-trash"></i> Remove
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p style="color:var(--text-muted); font-size:0.875rem;">No photos uploaded yet.</p>
+  {% endif %}
+</div>
+
+<!-- Breeding Records -->
+<div class="card" style="margin-bottom:1.25rem">
+  <div class="card-header">
+    <span class="card-title"><i class="fa-solid fa-egg"></i> Breeding Records</span>
+    <div style="display:flex; gap:0.5rem;">
+      <button class="btn btn-secondary btn-sm" onclick="toggleSection('breedingFormWrap')">
+        <i class="fa-solid fa-plus"></i> Add Record
+      </button>
+      <a href="{{ url_for('breeding.list_breeding', species_id=species.id) }}"
+         class="btn btn-secondary btn-sm">
+        <i class="fa-solid fa-list"></i> Full Log
+      </a>
+    </div>
+  </div>
+
+  <!-- Inline add breeding record form -->
+  <div class="inline-form-wrap" id="breedingFormWrap">
+    <form method="POST" action="{{ url_for('breeding.add_record', species_id=species.id) }}">
+      <input type="hidden" name="species_id" value="{{ species.id }}" />
+      <input type="hidden" name="return_to" value="species" />
+
+      <div class="breeding-form-grid">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Date</label>
+          <input type="text" name="record_date" class="form-control"
+                 placeholder="DD/MM/YYYY" />
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Eggs Laid</label>
+          <input type="number" name="eggs_laid" class="form-control"
+                 min="0" step="1" placeholder="e.g. 200"
+                 id="inlineEggsLaid" oninput="updateInlineHatch()" />
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Hatched / Survived</label>
+          <input type="number" name="eggs_hatched" class="form-control"
+                 min="0" step="1" placeholder="e.g. 140"
+                 id="inlineEggsHatched" oninput="updateInlineHatch()" />
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Notes</label>
+          <input type="text" name="notes" class="form-control"
+                 placeholder="Optional observations…" />
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:1rem; margin-bottom:0.65rem; flex-wrap:wrap;">
+        <div class="form-group" style="margin-bottom:0; flex:0 0 160px;">
+          <label class="form-label">Tank IDC</label>
+          <select name="tank_idc" class="form-control">
+            <option value="">— Unassigned —</option>
+            {% for t in tank_choices %}
+            <option value="{{ t }}"
+              {% if species.tank_idc == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div id="inlineHatchPreview" style="font-size:0.8rem; color:var(--text-muted); flex:1; padding-top:1.2rem;"></div>
+      </div>
+
+      <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+        <button type="button" class="btn btn-secondary btn-sm"
+                onclick="toggleSection('breedingFormWrap')">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">
+          <i class="fa-solid fa-floppy-disk"></i> Save Record
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Breeding records table -->
+  {% if species.breeding_records %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Tank</th>
+          <th>Eggs Laid</th>
+          <th>Hatched</th>
+          <th style="min-width:120px">Hatch Rate</th>
+          <th>Notes</th>
+          <th style="width:90px">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for record in species.breeding_records | sort(attribute='record_date', reverse=True) %}
+        <tr>
+          <td style="white-space:nowrap">{{ record.record_date_display }}</td>
+          <td>
+            {% if record.tank_idc %}
+            <a href="{{ url_for('tanks.detail', tank_idc=record.tank_idc) }}"
+               style="text-decoration:none;">
+              <span class="badge badge-info">{{ record.tank_idc }}</span>
+            </a>
+            {% else %}—{% endif %}
+          </td>
+          <td>{{ record.eggs_laid if record.eggs_laid is not none else '—' }}</td>
+          <td>
+            {% if record.eggs_hatched is not none %}
+            <strong style="color:var(--success)">{{ record.eggs_hatched }}</strong>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% if record.hatch_rate is not none %}
+            <div class="hatch-bar-wrap">
+              {% set rate = record.hatch_rate %}
+              <div class="hatch-bar">
+                <div class="hatch-bar-fill"
+                     style="width:{{ rate }}%;
+                            background:{% if rate >= 70 %}var(--success){% elif rate >= 40 %}var(--warning){% else %}var(--danger){% endif %};"></div>
+              </div>
+              <span class="badge {% if rate >= 70 %}badge-success{% elif rate >= 40 %}badge-warning{% else %}badge-danger{% endif %}">
+                {{ rate }}%
+              </span>
+            </div>
+            {% else %}—{% endif %}
+          </td>
+          <td style="color:var(--text-muted); font-size:0.82rem">{{ record.notes or '—' }}</td>
+          <td>
+            <div style="display:flex; gap:0.35rem;">
+              <a href="{{ url_for('breeding.edit_record', record_id=record.id) }}"
+                 class="btn btn-secondary btn-sm" title="Edit">
+                <i class="fa-solid fa-pen"></i>
+              </a>
+              <form method="POST"
+                    action="{{ url_for('breeding.delete_record', record_id=record.id) }}"
+                    onsubmit="return confirm('Delete this breeding record?')">
+                <input type="hidden" name="return_to" value="species" />
+                <button type="submit" class="btn btn-danger btn-sm" title="Delete">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Summary stats -->
+  {% set total_eggs    = species.breeding_records | sum(attribute='eggs_laid') or 0 %}
+  {% set total_hatched = species.breeding_records | sum(attribute='eggs_hatched') or 0 %}
+
+  <!-- Best tank by hatch rate -->
+  {% set tank_stats = {} %}
+  {% for r in species.breeding_records if r.tank_idc and r.hatch_rate %}
+    {% if r.tank_idc not in tank_stats or r.hatch_rate > tank_stats[r.tank_idc] %}
+      {% set _ = tank_stats.update({r.tank_idc: r.hatch_rate}) %}
+    {% endif %}
+  {% endfor %}
+  {% set best_tank = (tank_stats | dictsort(by='value', reverse=True) | first) if tank_stats else none %}
+
+  <div style="display:flex; gap:1.5rem; flex-wrap:wrap; padding:0.75rem 0 0;
+              border-top:1px solid var(--border); margin-top:0.5rem;
+              font-size:0.8rem; color:var(--text-muted);">
+    <span>Events: <strong style="color:var(--text-primary)">{{ species.breeding_records | length }}</strong></span>
+    <span>Total eggs: <strong style="color:var(--text-primary)">{{ total_eggs }}</strong></span>
+    <span>Total hatched: <strong style="color:var(--text-primary)">{{ total_hatched }}</strong></span>
+    {% if total_eggs > 0 %}
+    <span>Overall hatch rate:
+      <strong style="color:var(--accent)">{{ ((total_hatched / total_eggs) * 100) | round(1) }}%</strong>
+    </span>
+    {% endif %}
+    {% if best_tank %}
+    <span>Best tank: <strong style="color:var(--success)">{{ best_tank[0] }}</strong>
+      ({{ best_tank[1] }}% peak hatch)
+    </span>
+    {% endif %}
+  </div>
+  {% else %}
+  <p style="color:var(--text-muted); font-size:0.875rem">No breeding records yet. Click "Add Record" above.</p>
+  {% endif %}
+</div>
+
+<!-- Sales History -->
+<div class="card" style="margin-bottom:1.25rem">
+  <div class="card-header">
+    <span class="card-title"><i class="fa-solid fa-sterling-sign"></i> Sales History</span>
+    <a href="#" class="btn btn-secondary btn-sm">
+      <i class="fa-solid fa-plus"></i> Record Sale
+    </a>
+  </div>
+
+  {% if species.sales %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Customer</th>
+          <th>Qty</th>
+          <th>Price / Fish</th>
+          <th>Total</th>
+          <th>Payment</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sale in species.sales | sort(attribute='sale_date', reverse=True) %}
+        <tr>
+          <td>{{ sale.sale_date_display }}</td>
+          <td>{{ sale.customer.name if sale.customer else '—' }}</td>
+          <td>{{ sale.quantity_sold }}</td>
+          <td>£{{ '%.2f' | format(sale.price_per_fish_gbp) }}</td>
+          <td><strong>£{{ '%.2f' | format(sale.total_gbp or 0) }}</strong></td>
+          <td>
+            <span class="badge {{ 'badge-success' if sale.payment_type == 'Cash' else 'badge-info' }}">
+              {{ sale.payment_type or '—' }}
+            </span>
+          </td>
+          <td style="color:var(--text-muted); font-size:0.82rem">{{ sale.notes or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% set total_sold    = species.sales | sum(attribute='quantity_sold') %}
+  {% set total_revenue = species.sales | sum(attribute='total_gbp') %}
+  <div style="display:flex; gap:1.5rem; padding:0.75rem 0 0;
+              border-top:1px solid var(--border); margin-top:0.5rem;
+              font-size:0.8rem; color:var(--text-muted);">
+    <span>Total sold: <strong style="color:var(--text-primary)">{{ total_sold }}</strong></span>
+    <span>Total revenue: <strong style="color:var(--success)">£{{ '%.2f' | format(total_revenue or 0) }}</strong></span>
+  </div>
+  {% else %}
+  <p style="color:var(--text-muted); font-size:0.875rem">No sales recorded yet.</p>
+  {% endif %}
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">
+    <i class="fa-solid fa-xmark"></i>
+  </button>
+  <img id="lightboxImg" src="" alt="" onclick="event.stopPropagation()" />
+  <div class="lightbox-caption" id="lightboxCaption"></div>
+</div>
+
+<!-- Delete form -->
+<form id="deleteForm" method="POST" style="display:none;"></form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function toggleSection(id) {
+    const el = document.getElementById(id);
+    el.style.display = (el.style.display === '' || el.style.display === 'none') ? 'block' : 'none';
+  }
+
+  function openLightbox(src, caption) {
+    document.getElementById('lightboxImg').src = src;
+    document.getElementById('lightboxCaption').textContent = caption || '';
+    document.getElementById('lightbox').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+  function confirmDelete(speciesId, name) {
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    const form = document.getElementById('deleteForm');
+    form.action = `/species/${speciesId}/delete`;
+    form.submit();
+  }
+
+  function updateInlineHatch() {
+    const laid    = parseInt(document.getElementById('inlineEggsLaid').value)    || 0;
+    const hatched = parseInt(document.getElementById('inlineEggsHatched').value) || 0;
+    const preview = document.getElementById('inlineHatchPreview');
+    if (laid > 0 && hatched > 0) {
+      const rate = Math.round((hatched / laid) * 100 * 10) / 10;
+      const c = rate >= 70 ? 'var(--success)' : rate >= 40 ? 'var(--warning)' : 'var(--danger)';
+      preview.innerHTML = `<i class="fa-solid fa-chart-simple" style="color:${c}"></i>
+        Hatch rate: <strong style="color:${c}">${rate}%</strong>`;
+    } else {
+      preview.textContent = '';
+    }
+  }
+</script>
+{% endblock %}

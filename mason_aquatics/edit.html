@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ tank.tank_idc }} — Mason Aquatics{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1><i class="fa-solid fa-pen" style="color:var(--accent)"></i> Edit {{ tank.tank_idc }}</h1>
+    <div class="breadcrumb">
+      <a href="{{ url_for('tanks.list_tanks') }}" style="color:var(--text-muted); text-decoration:none;">Tanks</a>
+      &rsaquo;
+      <a href="{{ url_for('tanks.detail', tank_idc=tank.tank_idc) }}"
+         style="color:var(--text-muted); text-decoration:none;">{{ tank.tank_idc }}</a>
+      &rsaquo; Edit
+    </div>
+  </div>
+  <a href="{{ url_for('tanks.detail', tank_idc=tank.tank_idc) }}" class="btn btn-secondary">
+    <i class="fa-solid fa-arrow-left"></i> Back
+  </a>
+</div>
+
+<div style="max-width:600px;">
+  <div class="card">
+    <form method="POST" action="{{ url_for('tanks.edit_tank', tank_idc=tank.tank_idc) }}">
+
+      <div class="form-group">
+        <label class="form-label">Tank IDC</label>
+        <input type="text" class="form-control" value="{{ tank.tank_idc }}" disabled />
+      </div>
+
+      <div class="form-row" style="margin-bottom:1rem;">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Volume (litres)</label>
+          <input type="number" name="volume_litres" class="form-control"
+                 step="0.1" min="0"
+                 value="{{ tank.volume_litres or '' }}"
+                 placeholder="e.g. 240" />
+        </div>
+
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Location</label>
+          <input type="text" name="location" class="form-control"
+                 value="{{ tank.location or '' }}"
+                 placeholder="e.g. North Wall Row 2" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" class="form-control" rows="3"
+                  placeholder="Any notes about this tank…">{{ tank.notes or '' }}</textarea>
+      </div>
+
+      <div style="display:flex; gap:0.75rem; justify-content:flex-end; margin-top:1rem;">
+        <a href="{{ url_for('tanks.detail', tank_idc=tank.tank_idc) }}"
+           class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-floppy-disk"></i> Save Changes
+        </button>
+      </div>
+
+    </form>
+  </div>
+</div>
+{% endblock %}

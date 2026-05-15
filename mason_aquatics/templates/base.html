@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ settings.theme if settings else 'dark' }}">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Mason Aquatics{% endblock %}</title>
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+        crossorigin="anonymous" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital@1&display=swap"
+        rel="stylesheet" />
+
+  <!-- Chart.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"
+          crossorigin="anonymous"></script>
+
+  <style>
+    :root {
+      --accent: {{ settings.accent_colour if settings and settings.accent_colour else '#2196F3' }};
+      --font-size-base: {{ {'sm':'13px','md':'15px','lg':'17px','xl':'20px'}[settings.font_size if settings and settings.font_size else 'md'] }};
+    }
+
+    [data-theme="dark"] {
+      --bg-primary:   #0d1117;
+      --bg-secondary: #161b22;
+      --bg-card:      #21262d;
+      --bg-input:     #30363d;
+      --border:       #30363d;
+      --text-primary: #e6edf3;
+      --text-muted:   #8b949e;
+      --text-heading: #f0f6fc;
+      --danger:       #f85149;
+      --success:      #3fb950;
+      --warning:      #d29922;
+    }
+
+    [data-theme="light"] {
+      --bg-primary:   #f4f6f8;
+      --bg-secondary: #ffffff;
+      --bg-card:      #ffffff;
+      --bg-input:     #f0f2f5;
+      --border:       #d0d7de;
+      --text-primary: #1f2328;
+      --text-muted:   #57606a;
+      --text-heading: #0d1117;
+      --danger:       #cf222e;
+      --success:      #1a7f37;
+      --warning:      #9a6700;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: var(--font-size-base); scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .layout { display: flex; min-height: 100vh; }
+
+    .sidebar {
+      width: 240px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .sidebar-logo {
+      padding: 1.5rem 1.25rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-logo .brand {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.02em;
+    }
+
+    .sidebar-logo .sub {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 0.15rem;
+    }
+
+    .nav-section {
+      padding: 0.75rem 0.75rem 0.25rem;
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.55rem 1.25rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: all 0.15s;
+    }
+
+    .nav-item:hover,
+    .nav-item.active { color: var(--text-primary); background: var(--bg-card); }
+
+    .nav-item.active { color: var(--accent); border-left: 3px solid var(--accent); }
+
+    .nav-item i { width: 16px; text-align: center; }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 1rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    .topbar {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .topbar-search { flex: 1; max-width: 400px; position: relative; }
+
+    .topbar-search input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.45rem 0.75rem 0.45rem 2.25rem;
+      color: var(--text-primary);
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .topbar-search input:focus { border-color: var(--accent); }
+
+    .topbar-search .search-icon {
+      position: absolute;
+      left: 0.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    .topbar-actions { display: flex; align-items: center; gap: 0.75rem; margin-left: auto; }
+
+    .page-body { padding: 1.5rem; flex: 1; overflow-y: auto; }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+
+    .card-title { font-size: 0.9rem; font-weight: 600; color: var(--text-heading); }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.1rem 1.25rem;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.35rem;
+    }
+
+    .stat-value { font-size: 2rem; font-weight: 700; color: var(--accent); line-height: 1; }
+    .stat-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.45rem 1rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid transparent;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+
+    .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .btn-primary:hover { opacity: 0.88; }
+    .btn-secondary { background: var(--bg-input); color: var(--text-primary); border-color: var(--border); }
+    .btn-secondary:hover { border-color: var(--accent); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-sm { padding: 0.3rem 0.65rem; font-size: 0.78rem; }
+
+    .table-wrap { overflow-x: auto; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+
+    thead th {
+      text-align: left;
+      padding: 0.65rem 1rem;
+      background: var(--bg-input);
+      border-bottom: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:hover { background: var(--bg-input); }
+    tbody td { padding: 0.75rem 1rem; }
+
+    .form-group { margin-bottom: 1rem; }
+
+    .form-label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 0.875rem;
+      outline: none;
+      font-family: inherit;
+    }
+
+    .form-control:focus { border-color: var(--accent); }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .scientific { font-style: italic; color: var(--text-muted); }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+
+    .badge-success { background: rgba(63,185,80,0.15);  color: var(--success); }
+    .badge-warning { background: rgba(210,153,34,0.15); color: var(--warning); }
+    .badge-danger  { background: rgba(248,81,73,0.15);  color: var(--danger);  }
+    .badge-info    { background: rgba(33,150,243,0.15); color: var(--accent);  }
+
+    .alert {
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      font-size: 0.875rem;
+    }
+
+    .alert-danger  { background: rgba(248,81,73,0.12);  border: 1px solid var(--danger);  color: var(--danger); }
+    .alert-success { background: rgba(63,185,80,0.12);  border: 1px solid var(--success); color: var(--success); }
+    .alert-warning { background: rgba(210,153,34,0.12); border: 1px solid var(--warning); color: var(--warning); }
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+    }
+
+    .page-header h1 { font-size: 1.35rem; font-weight: 700; color: var(--text-heading); }
+
+    .page-header .breadcrumb {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+
+    .theme-toggle {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.4rem 0.65rem;
+      color: var(--text-primary);
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: border-color 0.15s;
+    }
+
+    .theme-toggle:hover { border-color: var(--accent); }
+
+    /* Settings footer button — accent ring when active */
+    .settings-footer-btn {
+      flex: 1;
+      justify-content: center;
+    }
+
+    .settings-footer-btn.active {
+      background: rgba(33,150,243,0.12);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <div class="brand"><i class="fa-solid fa-fish"></i> Mason Aquatics</div>
+      <div class="sub">Fish Room Management</div>
+    </div>
+
+    <div class="nav-section">Overview</div>
+    <a href="{{ url_for('main.dashboard') }}"
+       class="nav-item {% if request.endpoint == 'main.dashboard' %}active{% endif %}">
+      <i class="fa-solid fa-gauge"></i> Dashboard
+    </a>
+
+    <div class="nav-section">Stock</div>
+    <a href="{{ url_for('species.list_species') }}"
+       class="nav-item {% if request.blueprint == 'species' %}active{% endif %}">
+      <i class="fa-solid fa-fish-fins"></i> Species
+    </a>
+    <a href="{{ url_for('gallery.index') }}"
+       class="nav-item {% if request.blueprint == 'gallery' %}active{% endif %}">
+      <i class="fa-solid fa-camera"></i> Gallery
+    </a>
+
+    <div class="nav-section">Tanks</div>
+    <a href="{{ url_for('tanks.list_tanks') }}"
+       class="nav-item {% if request.blueprint == 'tanks' %}active{% endif %}">
+      <i class="fa-solid fa-water"></i> Tanks
+    </a>
+
+    <div class="nav-section">Records</div>
+    <a href="{{ url_for('breeding.list_breeding') }}"
+       class="nav-item {% if request.blueprint == 'breeding' %}active{% endif %}">
+      <i class="fa-solid fa-egg"></i> Breeding
+    </a>
+    <a href="{{ url_for('sales.list_sales') }}"
+       class="nav-item {% if request.blueprint == 'sales' and request.endpoint != 'sales.list_customers' and 'customer' not in (request.endpoint or '') %}active{% endif %}">
+      <i class="fa-solid fa-sterling-sign"></i> Sales
+    </a>
+    <a href="{{ url_for('sales.list_customers') }}"
+       class="nav-item {% if request.endpoint and 'customer' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fa-solid fa-users"></i> Customers
+    </a>
+
+    <div class="nav-section">Costs</div>
+    <a href="{{ url_for('costs.dashboard') }}"
+       class="nav-item {% if request.endpoint == 'costs.dashboard' %}active{% endif %}">
+      <i class="fa-solid fa-chart-pie"></i> Cost Dashboard
+    </a>
+    <a href="{{ url_for('costs.feed_list') }}"
+       class="nav-item {% if request.endpoint == 'costs.feed_list' %}active{% endif %}">
+      <i class="fa-solid fa-bowl-rice"></i> Feed Log
+    </a>
+    <a href="{{ url_for('costs.power_list') }}"
+       class="nav-item {% if request.endpoint == 'costs.power_list' %}active{% endif %}">
+      <i class="fa-solid fa-bolt"></i> Power Costs
+    </a>
+
+    <div class="nav-section">Reports</div>
+    <a href="{{ url_for('reports.available_list') }}"
+       class="nav-item {% if request.blueprint == 'reports' %}active{% endif %}">
+      <i class="fa-solid fa-file-pdf"></i> Available List
+    </a>
+    <a href="{{ url_for('labels.list_labels') }}"
+       class="nav-item {% if request.blueprint == 'labels' %}active{% endif %}">
+      <i class="fa-solid fa-tag"></i> Tank Labels
+    </a>
+    <a href="{{ url_for('articles.list_articles') }}"
+       class="nav-item {% if request.blueprint == 'articles' %}active{% endif %}">
+      <i class="fa-solid fa-book-open"></i> Documentation
+    </a>
+
+    <!-- ── Settings footer button — now a real link ── -->
+    <div class="sidebar-footer">
+      <a href="{{ url_for('main.settings') }}"
+         class="btn btn-secondary btn-sm settings-footer-btn
+                {% if request.endpoint == 'main.settings' %}active{% endif %}">
+        <i class="fa-solid fa-gear"></i> Settings
+      </a>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-search">
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        <input type="search" placeholder="Search species, tanks, customers…" />
+      </div>
+      <div class="topbar-actions">
+        <!-- Quick theme toggle -->
+        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light / dark theme">
+          <i class="fa-solid fa-circle-half-stroke"></i>
+        </button>
+        <!-- Settings shortcut in topbar -->
+        <a href="{{ url_for('main.settings') }}"
+           class="theme-toggle {% if request.endpoint == 'main.settings' %}active{% endif %}"
+           title="Settings"
+           style="text-decoration:none;">
+          <i class="fa-solid fa-gear"></i>
+        </a>
+      </div>
+    </div>
+
+    <div class="page-body">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+
+</div><!-- .layout -->
+
+<script>
+  function toggleTheme() {
+    const html    = document.documentElement;
+    const current = html.getAttribute('data-theme');
+    const next    = current === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('ma_theme', next);
+    fetch('/settings/theme', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ theme: next }),
+    });
+  }
+
+  // Apply saved theme from localStorage immediately (before first paint)
+  (function () {
+    const saved = localStorage.getItem('ma_theme');
+    if (saved) document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

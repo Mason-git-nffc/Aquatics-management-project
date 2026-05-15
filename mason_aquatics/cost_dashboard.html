@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+{% block title %}Cost Controls — Mason Aquatics{% endblock %}
+
+{% block head %}
+<style>
+  .cost-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .cs-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.1rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cs-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+    border-radius: 8px 8px 0 0;
+  }
+
+  .cs-card.green::after  { background: var(--success); }
+  .cs-card.amber::after  { background: var(--warning); }
+  .cs-card.purple::after { background: #a855f7; }
+
+  .cs-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+  }
+
+  .cs-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .cs-card.green .cs-value  { color: var(--success); }
+  .cs-card.amber .cs-value  { color: var(--warning); }
+  .cs-card.purple .cs-value { color: #a855f7; }
+
+  .cs-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  @media (max-width: 800px) { .two-col { grid-template-columns: 1fr; } }
+
+  .chart-wrap { position: relative; height: 180px; }
+
+  .tank-power-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+  }
+
+  .tank-power-row:last-child { border-bottom: none; }
+
+  .kwh-bar-wrap { display: flex; align-items: center; gap: 0.5rem; flex: 1; margin: 0 1rem; }
+  .kwh-bar { flex: 1; height: 5px; background: var(--bg-input); border-radius: 3px; overflow: hidden; }
+  .kwh-bar-fill { height: 100%; background: var(--accent); border-radius: 3px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1><i class="fa-solid fa-chart-pie" style="color:var(--accent)"></i> Cost Controls</h1>
+    <div class="breadcrumb">Costs · {{ month_label }} Overview</div>
+  </div>
+  <div style="display:flex; gap:0.5rem;">
+    <a href="{{ url_for('costs.feed_list') }}" class="btn btn-secondary">
+      <i class="fa-solid fa-bowl-rice"></i> Feed Log
+    </a>
+    <a href="{{ url_for('costs.power_list') }}" class="btn btn-secondary">
+      <i class="fa-solid fa-bolt"></i> Power Costs
+    </a>
+  </div>
+</div>
+
+<!-- Summary strip -->
+<div class="cost-summary">
+  <div class="cs-card">
+    <div class="cs-label">Feed This Month</div>
+    <div class="cs-value">£{{ '%.2f' | format(feed_this_month) }}</div>
+    <div class="cs-sub">{{ month_label }}</div>
+  </div>
+
+  <div class="cs-card {% if power_this_month %}amber{% endif %}">
+    <div class="cs-label">Power This Month</div>
+    <div class="cs-value">
+      {% if power_this_month is not none %}
+        £{{ '%.2f' | format(power_this_month) }}
+      {% elif est_power_cost %}
+        ~£{{ '%.2f' | format(est_power_cost) }}
+      {% else %}—{% endif %}
+    </div>
+    <div class="cs-sub">
+      {% if power_this_month %}recorded
+      {% elif est_power_cost %}estimated from equipment
+      {% else %}no tariff set{% endif %}
+    </div>
+  </div>
+
+  <div class="cs-card green">
+    <div class="cs-label">Monthly Total</div>
+    <div class="cs-value">£{{ '%.2f' | format(monthly_total) }}</div>
+    <div class="cs-sub">feed + power</div>
+  </div>
+
+  <div class="cs-card purple">
+    <div class="cs-label">Cost Per Fish</div>
+    <div class="cs-value" style="font-size:1.5rem;">
+      {% if cost_per_fish %}£{{ '%.2f' | format(cost_per_fish) }}{% else %}—{% endif %}
+    </div>
+    <div class="cs-sub">{{ total_fish }} fish in stock</div>
+  </div>
+
+  <div class="cs-card">
+    <div class="cs-label">Feed All Time</div>
+    <div class="cs-value" style="font-size:1.5rem;">£{{ '%.2f' | format(feed_all_time) }}</div>
+    <div class="cs-sub">total feed spend</div>
+  </div>
+
+  <div class="cs-card">
+    <div class="cs-label">Est. Monthly kWh</div>
+    <div class="cs-value" style="font-size:1.5rem;">{{ est_kwh }}</div>
+    <div class="cs-sub">
+      {% if latest_tariff %}at £{{ '%.4f' | format(latest_tariff) }}/kWh{% else %}set tariff to calculate cost{% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Charts row -->
+<div class="two-col">
+  <!-- Feed chart -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="fa-solid fa-bowl-rice"></i> Monthly Feed Cost</span>
+      <a href="{{ url_for('costs.feed_list') }}" class="btn btn-secondary btn-sm">View Log</a>
+    </div>
+    {% if feed_chart_labels %}
+    <div class="chart-wrap">
+      <canvas id="feedChart"></canvas>
+    </div>
+    {% else %}
+    <p style="color:var(--text-muted); font-size:0.875rem;">No feed entries yet.</p>
+    {% endif %}
+  </div>
+
+  <!-- Power chart -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="fa-solid fa-bolt"></i> Monthly Power Cost</span>
+      <a href="{{ url_for('costs.power_list') }}" class="btn btn-secondary btn-sm">Manage</a>
+    </div>
+    {% if power_chart_labels %}
+    <div class="chart-wrap">
+      <canvas id="powerChart"></canvas>
+    </div>
+    {% else %}
+    <p style="color:var(--text-muted); font-size:0.875rem;">No power records yet.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Tank power breakdown + recent feed -->
+<div class="two-col">
+
+  <!-- Tank equipment power breakdown -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="fa-solid fa-plug"></i> Equipment Power by Tank</span>
+      <a href="{{ url_for('tanks.list_tanks') }}" class="btn btn-secondary btn-sm">Manage Equipment</a>
+    </div>
+    {% if tank_power %}
+    {% set max_kwh = tank_power | map(attribute='monthly_kwh') | max %}
+    {% for row in tank_power %}
+    <div class="tank-power-row">
+      <span>
+        <a href="{{ url_for('tanks.detail', tank_idc=row.tank_idc) }}"
+           style="font-weight:600; color:var(--text-heading); text-decoration:none;">
+          {{ row.tank_idc }}
+        </a>
+        <span style="font-size:0.75rem; color:var(--text-muted);"> · {{ row.items }} items</span>
+      </span>
+      <div class="kwh-bar-wrap">
+        <div class="kwh-bar">
+          <div class="kwh-bar-fill"
+               style="width:{{ ((row.monthly_kwh / max_kwh) * 100) | round(1) if max_kwh else 0 }}%"></div>
+        </div>
+        <span style="font-size:0.78rem; color:var(--text-muted); white-space:nowrap;">
+          {{ row.monthly_kwh }} kWh/mo
+        </span>
+      </div>
+      <span style="font-size:0.82rem; font-weight:600; color:var(--warning); white-space:nowrap;">
+        {% if row.monthly_cost is not none %}£{{ '%.2f' | format(row.monthly_cost) }}{% else %}—{% endif %}
+      </span>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p style="color:var(--text-muted); font-size:0.875rem;">
+      No equipment registered yet.
+      <a href="{{ url_for('tanks.list_tanks') }}" style="color:var(--accent);">Add equipment to tanks.</a>
+    </p>
+    {% endif %}
+  </div>
+
+  <!-- Recent feed entries -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="fa-solid fa-bowl-rice"></i> Recent Feed Entries</span>
+      <a href="{{ url_for('costs.feed_list') }}" class="btn btn-secondary btn-sm">View All</a>
+    </div>
+    {% if recent_feed %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Brand / Type</th>
+            <th>Amount</th>
+            <th>Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in recent_feed %}
+          <tr>
+            <td style="white-space:nowrap; font-size:0.82rem;">
+              {{ f.feed_date_display if f.feed_date_display is defined else f.feed_date }}
+            </td>
+            <td>
+              {{ f.brand or '—' }}
+              {% if f.feed_type %}<span style="color:var(--text-muted); font-size:0.78rem;"> · {{ f.feed_type }}</span>{% endif %}
+            </td>
+            <td style="font-size:0.82rem;">{{ f.amount_grams }}g</td>
+            <td style="font-weight:600; color:var(--warning);">
+              {% if f.cost_this_entry %}£{{ '%.2f' | format(f.cost_this_entry) }}{% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p style="color:var(--text-muted); font-size:0.875rem;">
+      No feed entries yet.
+      <a href="{{ url_for('costs.feed_list') }}" style="color:var(--accent);">Add your first entry.</a>
+    </p>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const accent  = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()  || '#2196F3';
+  const warning = getComputedStyle(document.documentElement).getPropertyValue('--warning').trim() || '#d29922';
+  const muted   = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#8b949e';
+  const border  = getComputedStyle(document.documentElement).getPropertyValue('--border').trim()  || '#30363d';
+
+  const chartDefaults = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1c2128',
+        titleColor: '#e6edf3',
+        bodyColor: '#8b949e',
+        borderColor: border,
+        borderWidth: 1,
+        callbacks: { label: ctx => '  £' + ctx.parsed.y.toFixed(2) },
+      },
+    },
+    scales: {
+      x: { ticks: { color: muted, font: { size: 10 } }, grid: { color: border } },
+      y: {
+        ticks: { color: muted, font: { size: 10 }, callback: v => '£' + v.toFixed(2) },
+        grid: { color: border },
+        beginAtZero: true,
+      },
+    },
+  };
+
+  {% if feed_chart_labels %}
+  new Chart(document.getElementById('feedChart'), {
+    type: 'bar',
+    data: {
+      labels: {{ feed_chart_labels | tojson }},
+      datasets: [{
+        data: {{ feed_chart_data | tojson }},
+        backgroundColor: accent + '88',
+        borderColor: accent,
+        borderWidth: 1.5,
+        borderRadius: 4,
+      }],
+    },
+    options: chartDefaults,
+  });
+  {% endif %}
+
+  {% if power_chart_labels %}
+  new Chart(document.getElementById('powerChart'), {
+    type: 'bar',
+    data: {
+      labels: {{ power_chart_labels | tojson }},
+      datasets: [{
+        data: {{ power_chart_data | tojson }},
+        backgroundColor: warning + '88',
+        borderColor: warning,
+        borderWidth: 1.5,
+        borderRadius: 4,
+      }],
+    },
+    options: {
+      ...chartDefaults,
+      plugins: {
+        ...chartDefaults.plugins,
+        tooltip: {
+          ...chartDefaults.plugins.tooltip,
+          callbacks: { label: ctx => '  £' + ctx.parsed.y.toFixed(2) },
+        },
+      },
+    },
+  });
+  {% endif %}
+</script>
+{% endblock %}

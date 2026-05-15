@@ -1,0 +1,575 @@
+{% extends "base.html" %}
+{% block title %}Available List — Mason Aquatics{% endblock %}
+
+{% block head %}
+<style>
+  /* ── Summary strip ──────────────────────────────────────────────── */
+  .report-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .rs-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.1rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .rs-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+    border-radius: 8px 8px 0 0;
+  }
+
+  .rs-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+  }
+
+  .rs-value {
+    font-size: 1.9rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .rs-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+  /* ── Two-column layout ──────────────────────────────────────────── */
+  .report-layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  @media (max-width: 900px) {
+    .report-layout { grid-template-columns: 1fr; }
+  }
+
+  /* ── Filter panel ───────────────────────────────────────────────── */
+  .filter-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    position: sticky;
+    top: 1rem;
+  }
+
+  .filter-panel-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    margin-bottom: 1.1rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .filter-option {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-bottom: 0.35rem;
+    transition: background 0.12s;
+    font-size: 0.875rem;
+  }
+
+  .filter-option:hover { background: var(--bg-input); }
+
+  .filter-option input[type="radio"] {
+    accent-color: var(--accent);
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
+  .filter-option.active { background: var(--bg-input); }
+
+  /* Threshold input */
+  .threshold-wrap {
+    display: none;
+    margin: 0.5rem 0 0.75rem 1.9rem;
+  }
+
+  .threshold-wrap.visible { display: flex; align-items: center; gap: 0.5rem; }
+
+  .threshold-wrap input {
+    width: 70px;
+    padding: 0.35rem 0.5rem;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    outline: none;
+  }
+
+  .threshold-wrap input:focus { border-color: var(--accent); }
+
+  /* Species picker */
+  .species-picker {
+    display: none;
+    max-height: 220px;
+    overflow-y: auto;
+    margin: 0.5rem 0 0.75rem 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-input);
+  }
+
+  .species-picker.visible { display: block; }
+
+  .species-pick-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.82rem;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+
+  .species-pick-item:last-child { border-bottom: none; }
+  .species-pick-item:hover { background: var(--bg-card); }
+
+  .species-pick-item input[type="checkbox"] {
+    accent-color: var(--accent);
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+  }
+
+  .pick-select-all {
+    padding: 0.45rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--accent);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  .pick-select-all span { cursor: pointer; }
+  .pick-select-all span:hover { text-decoration: underline; }
+
+  /* ── Preview panel ──────────────────────────────────────────────── */
+  .preview-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .preview-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .preview-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-heading);
+  }
+
+  .preview-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  /* ── Preview table ──────────────────────────────────────────────── */
+  .preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+
+  .preview-table thead th {
+    text-align: left;
+    padding: 0.6rem 1rem;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .preview-table thead th:nth-child(3) { text-align: center; }
+
+  .preview-table tbody tr { border-bottom: 1px solid var(--border); }
+  .preview-table tbody tr:nth-child(even) { background: var(--bg-input); }
+  .preview-table tbody tr:hover { background: rgba(33,150,243,0.05); }
+  .preview-table tbody td { padding: 0.7rem 1rem; vertical-align: top; }
+
+  .stock-ok   { color: var(--success); font-weight: 700; }
+  .stock-low  { color: var(--warning); font-weight: 700; }
+  .stock-out  { color: var(--danger);  font-weight: 700; }
+
+  .price-chip {
+    display: inline-block;
+    background: rgba(33,150,243,0.1);
+    border: 1px solid rgba(33,150,243,0.2);
+    border-radius: 4px;
+    padding: 0.1rem 0.45rem;
+    font-size: 0.75rem;
+    color: var(--accent);
+    margin: 0.1rem 0.1rem 0.1rem 0;
+    white-space: nowrap;
+  }
+
+  /* ── Empty state ────────────────────────────────────────────────── */
+  .empty-preview {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-muted);
+  }
+
+  .empty-preview i {
+    font-size: 2.5rem;
+    color: var(--border);
+    margin-bottom: 0.75rem;
+    display: block;
+  }
+
+  /* ── Download bar ───────────────────────────────────────────────── */
+  .download-bar {
+    background: linear-gradient(135deg, rgba(33,150,243,0.08), rgba(33,150,243,0.03));
+    border: 1px solid rgba(33,150,243,0.25);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .download-bar-info { flex: 1; }
+  .download-bar-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-heading);
+    margin-bottom: 0.15rem;
+  }
+  .download-bar-sub { font-size: 0.78rem; color: var(--text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1><i class="fa-solid fa-file-pdf" style="color:var(--accent)"></i> Available List</h1>
+    <div class="breadcrumb">Reports · Stock Available List</div>
+  </div>
+</div>
+
+<!-- Summary strip -->
+<div class="report-summary">
+  <div class="rs-card">
+    <div class="rs-label">Showing</div>
+    <div class="rs-value">{{ preview_list | length }}</div>
+    <div class="rs-sub">species in preview</div>
+  </div>
+  <div class="rs-card">
+    <div class="rs-label">Fish Available</div>
+    <div class="rs-value">{{ preview_list | sum(attribute='current_stock') }}</div>
+    <div class="rs-sub">total stock shown</div>
+  </div>
+  <div class="rs-card">
+    <div class="rs-label">With Prices</div>
+    <div class="rs-value">{{ preview_list | selectattr('wharf_prices') | list | length }}</div>
+    <div class="rs-sub">have wharf prices set</div>
+  </div>
+  <div class="rs-card">
+    <div class="rs-label">Generated</div>
+    <div class="rs-value" style="font-size:1.1rem; line-height:1.3;">{{ today }}</div>
+    <div class="rs-sub">today's date</div>
+  </div>
+</div>
+
+<!-- Download banner -->
+<div class="download-bar">
+  <div class="download-bar-info">
+    <div class="download-bar-title">
+      <i class="fa-solid fa-file-pdf" style="color:var(--accent)"></i>
+      Download as PDF
+    </div>
+    <div class="download-bar-sub">
+      A4 branded PDF with page numbers, species table and pricing tiers.
+      The PDF will reflect your current filter settings.
+    </div>
+  </div>
+  <button class="btn btn-primary" onclick="submitPdf()">
+    <i class="fa-solid fa-download"></i> Download PDF
+  </button>
+</div>
+
+<!-- Main layout: filter panel + preview -->
+<form method="GET" action="{{ url_for('reports.available_list') }}" id="filterForm">
+<div class="report-layout">
+
+  <!-- ── Filter Panel ──────────────────────────────────────────────── -->
+  <div class="filter-panel">
+    <div class="filter-panel-title">
+      <i class="fa-solid fa-filter"></i> Filter Options
+    </div>
+
+    <!-- Stock filter radio group -->
+    <div style="margin-bottom:0.75rem;">
+      <div style="font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.07em;
+                  color:var(--text-muted); margin-bottom:0.5rem;">Stock Level</div>
+
+      <label class="filter-option {{ 'active' if stock_filter == 'in_stock' else '' }}">
+        <input type="radio" name="stock_filter" value="in_stock"
+               {% if stock_filter == 'in_stock' %}checked{% endif %}
+               onchange="handleFilterChange(this)" />
+        In stock only (stock &gt; 0)
+      </label>
+
+      <label class="filter-option {{ 'active' if stock_filter == 'all' else '' }}">
+        <input type="radio" name="stock_filter" value="all"
+               {% if stock_filter == 'all' %}checked{% endif %}
+               onchange="handleFilterChange(this)" />
+        All species (any stock level)
+      </label>
+
+      <label class="filter-option {{ 'active' if stock_filter == 'threshold' else '' }}">
+        <input type="radio" name="stock_filter" value="threshold"
+               {% if stock_filter == 'threshold' %}checked{% endif %}
+               onchange="handleFilterChange(this)" />
+        Stock above threshold…
+      </label>
+
+      <!-- Threshold input -->
+      <div class="threshold-wrap {{ 'visible' if stock_filter == 'threshold' else '' }}"
+           id="thresholdWrap">
+        <span style="font-size:0.82rem; color:var(--text-muted);">Min. stock:</span>
+        <input type="number" name="threshold" id="thresholdInput"
+               min="1" step="1"
+               value="{{ threshold or 1 }}"
+               placeholder="e.g. 5" />
+      </div>
+
+      <label class="filter-option {{ 'active' if stock_filter == 'selected' else '' }}">
+        <input type="radio" name="stock_filter" value="selected"
+               {% if stock_filter == 'selected' %}checked{% endif %}
+               onchange="handleFilterChange(this)" />
+        Select specific species…
+      </label>
+
+      <!-- Species picker -->
+      <div class="species-picker {{ 'visible' if stock_filter == 'selected' else '' }}"
+           id="speciesPicker">
+        <div class="pick-select-all">
+          <span onclick="selectAllSpecies(true)">Select all</span>
+          <span onclick="selectAllSpecies(false)">Clear</span>
+        </div>
+        {% for s in all_species %}
+        <label class="species-pick-item">
+          <input type="checkbox" name="species_ids" value="{{ s.id }}"
+                 class="sp-checkbox"
+                 {% if s.id | string in selected_ids %}checked{% endif %} />
+          <span>
+            {{ s.common_name }}
+            {% if s.scientific_name %}
+            <span style="font-style:italic; font-size:0.75rem; color:var(--text-muted);">
+              — {{ s.scientific_name }}
+            </span>
+            {% endif %}
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Apply button -->
+    <button type="submit" class="btn btn-primary" style="width:100%">
+      <i class="fa-solid fa-arrows-rotate"></i> Update Preview
+    </button>
+
+    {% if stock_filter != 'in_stock' or selected_ids %}
+    <a href="{{ url_for('reports.available_list') }}"
+       class="btn btn-secondary" style="width:100%; margin-top:0.5rem; text-align:center;">
+      <i class="fa-solid fa-xmark"></i> Reset Filters
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- ── Preview Panel ─────────────────────────────────────────────── -->
+  <div class="preview-panel">
+    <div class="preview-header">
+      <div>
+        <div class="preview-title">
+          <i class="fa-solid fa-table-list"></i> Available Stock Preview
+        </div>
+        <div class="preview-meta" style="margin-top:0.2rem;">
+          Mason Aquatics · {{ today }} ·
+          {% if stock_filter == 'in_stock' %}In-stock species only
+          {% elif stock_filter == 'all' %}All species
+          {% elif stock_filter == 'threshold' %}Stock ≥ {{ threshold }}
+          {% else %}Selected species ({{ preview_list | length }})
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {% if preview_list %}
+    <div style="overflow-x:auto;">
+      <table class="preview-table">
+        <thead>
+          <tr>
+            <th style="width:25%">Common Name</th>
+            <th style="width:30%">Scientific Name</th>
+            <th style="width:8%; text-align:center;">Stock</th>
+            <th>Wharf Sale Price(s)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in preview_list %}
+          <tr>
+            <td>
+              <a href="{{ url_for('species.detail', species_id=s.id) }}"
+                 style="font-weight:600; color:var(--text-heading); text-decoration:none;">
+                {{ s.common_name }}
+              </a>
+            </td>
+            <td><em class="scientific">{{ s.scientific_name or '—' }}</em></td>
+            <td style="text-align:center;">
+              {% set stock = s.current_stock %}
+              {% if stock <= 0 %}
+                <span class="stock-out">{{ stock }}</span>
+              {% elif stock < 3 %}
+                <span class="stock-low">{{ stock }}</span>
+              {% else %}
+                <span class="stock-ok">{{ stock }}</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if s.wharf_prices %}
+                {% for wp in s.wharf_prices | sort(attribute='quantity') %}
+                <span class="price-chip">
+                  {{ wp.quantity }} for £{{ '%.2f' | format(wp.price_gbp) }}
+                </span>
+                {% endfor %}
+              {% else %}
+                <span style="color:var(--text-muted); font-size:0.82rem;">No price set</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Footer summary -->
+    <div style="padding:0.75rem 1rem; border-top:1px solid var(--border);
+                font-size:0.78rem; color:var(--text-muted); display:flex; gap:1.5rem;">
+      <span>{{ preview_list | length }} species</span>
+      <span>{{ preview_list | sum(attribute='current_stock') }} fish total</span>
+      <span style="margin-left:auto;">Generated {{ today }}</span>
+    </div>
+
+    {% else %}
+    <div class="empty-preview">
+      <i class="fa-solid fa-clipboard-list"></i>
+      <p style="margin-bottom:0.75rem;">No species match the selected filters.</p>
+      <a href="{{ url_for('reports.available_list') }}" class="btn btn-secondary btn-sm">
+        Reset Filters
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+</form>
+
+<!-- Hidden PDF download form (mirrors filter state) -->
+<form method="POST" action="{{ url_for('reports.available_list_pdf') }}"
+      id="pdfForm" style="display:none;">
+  <input type="hidden" name="stock_filter" id="pdf_stock_filter" value="{{ stock_filter }}" />
+  <input type="hidden" name="threshold"    id="pdf_threshold"    value="{{ threshold }}" />
+  {% for sid in selected_ids %}
+  <input type="hidden" name="species_ids" value="{{ sid }}" />
+  {% endfor %}
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // ── Filter radio change ────────────────────────────────────────────
+  function handleFilterChange(radio) {
+    const val = radio.value;
+    document.getElementById('thresholdWrap').classList.toggle('visible', val === 'threshold');
+    document.getElementById('speciesPicker').classList.toggle('visible', val === 'selected');
+  }
+
+  // ── Species picker helpers ─────────────────────────────────────────
+  function selectAllSpecies(checked) {
+    document.querySelectorAll('.sp-checkbox').forEach(cb => cb.checked = checked);
+  }
+
+  // ── PDF download — clone current filter state into pdfForm ────────
+  function submitPdf() {
+    const filterForm = document.getElementById('filterForm');
+    const pdfForm    = document.getElementById('pdfForm');
+
+    // Clear previous hidden inputs (except static ones)
+    pdfForm.querySelectorAll('input[data-dynamic]').forEach(el => el.remove());
+
+    // Copy stock_filter
+    const filterVal = filterForm.querySelector('input[name="stock_filter"]:checked');
+    pdfForm.querySelector('#pdf_stock_filter').value = filterVal ? filterVal.value : 'in_stock';
+
+    // Copy threshold
+    const threshVal = filterForm.querySelector('#thresholdInput');
+    pdfForm.querySelector('#pdf_threshold').value = threshVal ? threshVal.value : '1';
+
+    // Copy selected species checkboxes
+    pdfForm.querySelectorAll('input[name="species_ids"]').forEach(el => el.remove());
+    filterForm.querySelectorAll('input[name="species_ids"]:checked').forEach(cb => {
+      const h = document.createElement('input');
+      h.type  = 'hidden';
+      h.name  = 'species_ids';
+      h.value = cb.value;
+      h.setAttribute('data-dynamic', '1');
+      pdfForm.appendChild(h);
+    });
+
+    pdfForm.submit();
+  }
+
+  // ── Init on load ──────────────────────────────────────────────────
+  (function() {
+    const checked = document.querySelector('input[name="stock_filter"]:checked');
+    if (checked) handleFilterChange(checked);
+  })();
+</script>
+{% endblock %}
