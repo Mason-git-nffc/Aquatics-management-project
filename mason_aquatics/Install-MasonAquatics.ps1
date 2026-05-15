@@ -1,471 +1,339 @@
 #Requires -RunAsAdministrator
-<#
-.SYNOPSIS
-    Mason Aquatics — Windows Installer
-    Run this script as Administrator from the folder containing your project files.
-
-.DESCRIPTION
-    This script will:
-      1. Verify it is running as Administrator
-      2. Install Python 3.11 if not already present
-      3. Create the installation directory at C:\MasonAquatics
-      4. Copy all project files into the correct folder structure
-      5. Write requirements.txt
-      6. Create a Python virtual environment and install all dependencies
-      7. Initialise the SQLite database
-      8. Create a Start-MasonAquatics.bat launcher
-      9. Create a Desktop shortcut
-     10. Configure Windows Firewall to allow port 5000 (local only)
-     11. Optionally register a Task Scheduler task to auto-start on login
-     12. Launch the app and open the browser
-
-.NOTES
-    Place this script in the same folder as your Mason Aquatics project files
-    before running.  All .py and .html files must be present alongside it.
-#>
+# Mason Aquatics - Windows Installer
+# Run as Administrator from the folder containing all project files.
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# ── Colour helpers ─────────────────────────────────────────────────────────────
-function Write-Header  { param([string]$msg) Write-Host "`n═══  $msg  ═══" -ForegroundColor Cyan }
-function Write-Ok      { param([string]$msg) Write-Host "  ✓  $msg" -ForegroundColor Green }
-function Write-Info    { param([string]$msg) Write-Host "  →  $msg" -ForegroundColor Yellow }
-function Write-Err     { param([string]$msg) Write-Host "  ✗  $msg" -ForegroundColor Red }
+function Write-Header { param([string]$m) Write-Host ("`n===  $m  ===") -ForegroundColor Cyan }
+function Write-Ok     { param([string]$m) Write-Host ("  OK  " + $m) -ForegroundColor Green }
+function Write-Info   { param([string]$m) Write-Host ("  >>  " + $m) -ForegroundColor Yellow }
+function Write-Err    { param([string]$m) Write-Host ("  !!  " + $m) -ForegroundColor Red }
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 0. BANNER
-# ══════════════════════════════════════════════════════════════════════════════
 Clear-Host
-Write-Host @"
+Write-Host ""
+Write-Host "  ================================================" -ForegroundColor Cyan
+Write-Host "   Mason Aquatics - Fish Room Management System"    -ForegroundColor Cyan
+Write-Host "   Windows Installer  |  All Phases Complete"       -ForegroundColor Cyan
+Write-Host "  ================================================" -ForegroundColor Cyan
+Write-Host ""
 
-  ███╗   ███╗ █████╗ ███████╗ ██████╗ ███╗   ██╗
-  ████╗ ████║██╔══██╗██╔════╝██╔═══██╗████╗  ██║
-  ██╔████╔██║███████║███████╗██║   ██║██╔██╗ ██║
-  ██║╚██╔╝██║██╔══██║╚════██║██║   ██║██║╚██╗██║
-  ██║ ╚═╝ ██║██║  ██║███████║╚██████╔╝██║ ╚████║
-  ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═══╝
-       A Q U A T I C S   —   F i s h   R o o m
-"@ -ForegroundColor Cyan
-Write-Host "  Windows Installer  |  Phases 1–10 Complete`n" -ForegroundColor DarkCyan
-
-# ══════════════════════════════════════════════════════════════════════════════
-# 1. ADMIN CHECK
-# ══════════════════════════════════════════════════════════════════════════════
-Write-Header "Step 1 — Administrator Check"
-$currentPrincipal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
-if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Err "This script must be run as Administrator."
-    Write-Err "Right-click the script → 'Run with PowerShell' → confirm UAC prompt."
+# ── Step 1: Admin check ───────────────────────────────────────────────────────
+Write-Header "Step 1 - Administrator Check"
+$principal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Err "Must be run as Administrator. Right-click and choose Run with PowerShell."
     pause; exit 1
 }
 Write-Ok "Running as Administrator"
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 2. CONFIGURATION
-# ══════════════════════════════════════════════════════════════════════════════
-Write-Header "Step 2 — Configuration"
-
+# ── Step 2: Configuration ─────────────────────────────────────────────────────
+Write-Header "Step 2 - Configuration"
 $InstallDir  = "C:\MasonAquatics"
-$VenvDir     = "$InstallDir\.venv"
+$VenvDir     = $InstallDir + "\.venv"
 $PythonVer   = "3.11.9"
-$PythonUrl   = "https://www.python.org/ftp/python/$PythonVer/python-$PythonVer-amd64.exe"
-$PythonInst  = "$env:TEMP\python-$PythonVer-amd64.exe"
-$ScriptDir   = $PSScriptRoot   # folder this .ps1 lives in
+$PythonUrl   = "https://www.python.org/ftp/python/" + $PythonVer + "/python-" + $PythonVer + "-amd64.exe"
+$PythonInst  = $env:TEMP + "\python-installer.exe"
+$ScriptDir   = if ($PSScriptRoot -and $PSScriptRoot -ne "") { $PSScriptRoot } else { if ($MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocation.MyCommand.Path } else { $PWD.Path } }
 $DesktopPath = [Environment]::GetFolderPath("CommonDesktopDirectory")
 $Port        = 5000
+$VenvPython  = $VenvDir + "\Scripts\python.exe"
+$VenvPip     = $VenvDir + "\Scripts\pip.exe"
+$BatPath     = $InstallDir + "\Start-MasonAquatics.bat"
+$ReqFile     = $InstallDir + "\requirements.txt"
 
-Write-Info "Install directory : $InstallDir"
-Write-Info "Source directory  : $ScriptDir"
-Write-Info "Virtual env       : $VenvDir"
-Write-Info "App port          : $Port"
+Write-Info ("Install dir : " + $InstallDir)
+Write-Info ("Source dir  : " + $ScriptDir)
+Write-Info ("Port        : " + $Port)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 3. PYTHON CHECK / INSTALL
-# ══════════════════════════════════════════════════════════════════════════════
-Write-Header "Step 3 — Python"
+# ── Step 3: Python ────────────────────────────────────────────────────────────
+Write-Header "Step 3 - Python"
 
 function Find-Python {
-    # Try py launcher first, then direct python/python3 commands
-    foreach ($cmd in @('py', 'python', 'python3')) {
+    foreach ($cmd in @('py','python','python3')) {
         try {
-            $ver = & $cmd --version 2>&1
-            if ($ver -match 'Python 3\.(\d+)') {
-                $minor = [int]$Matches[1]
-                if ($minor -ge 9) {
-                    return (Get-Command $cmd).Source
-                }
+            $v = & $cmd --version 2>&1
+            if ($v -match 'Python 3\.(\d+)' -and [int]$Matches[1] -ge 9) {
+                $found = Get-Command $cmd -ErrorAction SilentlyContinue
+                if ($found) { return $found.Source }
             }
         } catch {}
     }
-    # Search common install paths
     $paths = @(
-        "$env:LOCALAPPDATA\Programs\Python\Python311\python.exe",
-        "$env:LOCALAPPDATA\Programs\Python\Python310\python.exe",
+        ($env:LOCALAPPDATA + "\Programs\Python\Python311\python.exe"),
+        ($env:LOCALAPPDATA + "\Programs\Python\Python310\python.exe"),
+        ($env:LOCALAPPDATA + "\Programs\Python\Python39\python.exe"),
         "C:\Python311\python.exe",
         "C:\Python310\python.exe",
         "C:\Python39\python.exe"
     )
-    foreach ($p in $paths) {
-        if (Test-Path $p) { return $p }
-    }
+    foreach ($p in $paths) { if (Test-Path $p) { return $p } }
     return $null
 }
 
 $PythonExe = Find-Python
-
 if ($PythonExe) {
-    $ver = & $PythonExe --version 2>&1
-    Write-Ok "Found Python: $ver  ($PythonExe)"
+    Write-Ok ("Found: " + (& $PythonExe --version 2>&1) + " at " + $PythonExe)
 } else {
-    Write-Info "Python 3.9+ not found. Downloading Python $PythonVer ..."
+    Write-Info ("Downloading Python " + $PythonVer + " ...")
     try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
         Invoke-WebRequest -Uri $PythonUrl -OutFile $PythonInst -UseBasicParsing
-        Write-Info "Installing Python silently (this may take a minute) ..."
-        $args = "/quiet InstallAllUsers=1 PrependPath=1 Include_pip=1 Include_launcher=1"
-        Start-Process -FilePath $PythonInst -ArgumentList $args -Wait -NoNewWindow
+        Write-Info "Installing Python silently ..."
+        $argString = "/quiet InstallAllUsers=1 PrependPath=1 Include_pip=1 Include_launcher=1"
+        Start-Process -FilePath $PythonInst -ArgumentList $argString -Wait -NoNewWindow
         Remove-Item $PythonInst -Force -ErrorAction SilentlyContinue
-
-        # Refresh PATH
-        $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";" +
-                    [System.Environment]::GetEnvironmentVariable("PATH","User")
-
+        $env:PATH = ([System.Environment]::GetEnvironmentVariable("PATH","Machine")) + ";" +
+                    ([System.Environment]::GetEnvironmentVariable("PATH","User"))
         $PythonExe = Find-Python
-        if (-not $PythonExe) { throw "Python still not found after install." }
-        Write-Ok "Python installed: $(& $PythonExe --version 2>&1)"
+        if (-not $PythonExe) { throw "Python not found after install." }
+        Write-Ok ("Installed: " + (& $PythonExe --version 2>&1))
     } catch {
-        Write-Err "Failed to install Python automatically."
-        Write-Err "Please install Python 3.11 manually from https://www.python.org/downloads/"
-        Write-Err "Then re-run this script."
+        Write-Err "Python install failed. Install manually from https://www.python.org/downloads/"
         pause; exit 1
     }
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 4. CREATE INSTALL DIRECTORY STRUCTURE
-# ══════════════════════════════════════════════════════════════════════════════
-Write-Header "Step 4 — Creating Directory Structure"
-
+# ── Step 4: Directory structure ───────────────────────────────────────────────
+Write-Header "Step 4 - Creating Directory Structure"
 $dirs = @(
     $InstallDir,
-    "$InstallDir\routes",
-    "$InstallDir\templates\articles",
-    "$InstallDir\templates\species",
-    "$InstallDir\templates\tanks",
-    "$InstallDir\templates\breeding",
-    "$InstallDir\templates\sales",
-    "$InstallDir\templates\gallery",
-    "$InstallDir\templates\public",
-    "$InstallDir\templates\labels",
-    "$InstallDir\templates\reports",
-    "$InstallDir\templates\costs",
-    "$InstallDir\static\uploads\photos",
-    "$InstallDir\static\generated",
-    "$InstallDir\instance"
+    ($InstallDir + "\routes"),
+    ($InstallDir + "\templates\articles"),
+    ($InstallDir + "\templates\species"),
+    ($InstallDir + "\templates\tanks"),
+    ($InstallDir + "\templates\breeding"),
+    ($InstallDir + "\templates\sales"),
+    ($InstallDir + "\templates\gallery"),
+    ($InstallDir + "\templates\public"),
+    ($InstallDir + "\templates\labels"),
+    ($InstallDir + "\templates\reports"),
+    ($InstallDir + "\templates\costs"),
+    ($InstallDir + "\static\uploads\photos"),
+    ($InstallDir + "\static\generated"),
+    ($InstallDir + "\instance")
 )
-foreach ($d in $dirs) {
-    New-Item -ItemType Directory -Path $d -Force | Out-Null
-}
-Write-Ok "Directory structure created"
+foreach ($d in $dirs) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
+Write-Ok "All directories created"
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 5. COPY PROJECT FILES
-# ══════════════════════════════════════════════════════════════════════════════
-Write-Header "Step 5 — Copying Project Files"
+# ── Step 5: Copy files ────────────────────────────────────────────────────────
+Write-Header "Step 5 - Copying Project Files"
 
-# Helper: copy a file with existence check and friendly message
-function Copy-ProjectFile {
+function Copy-If-Exists {
     param([string]$Src, [string]$Dst)
     if (Test-Path $Src) {
         Copy-Item -Path $Src -Destination $Dst -Force
-        Write-Ok "  $([System.IO.Path]::GetFileName($Src)) → $($Dst.Replace($InstallDir,''))"
+        Write-Ok ([System.IO.Path]::GetFileName($Src) + " -> " + $Dst.Replace($InstallDir,""))
     } else {
-        Write-Info "  SKIP (not found): $Src"
+        Write-Info ("Skipping (not found): " + [System.IO.Path]::GetFileName($Src))
     }
 }
 
-# ── Root Python files ──────────────────────────────────────────────────────
-Copy-ProjectFile "$ScriptDir\app.py"    "$InstallDir\app.py"
-Copy-ProjectFile "$ScriptDir\models.py" "$InstallDir\models.py"
+Copy-If-Exists ($ScriptDir + "\app.py")    ($InstallDir + "\app.py")
+Copy-If-Exists ($ScriptDir + "\models.py") ($InstallDir + "\models.py")
 
-# ── Routes ────────────────────────────────────────────────────────────────
-$routeMap = @{
-    "main.py"     = "routes\main.py"
-    "tanks.py"    = "routes\tanks.py"
-    "articles.py" = "routes\articles.py"
-    "breeding.py" = "routes\breeding.py"
-    "costs.py"    = "routes\costs.py"
-    "gallery.py"  = "routes\gallery.py"
-    "labels.py"   = "routes\labels.py"
-    "public.py"   = "routes\public.py"
-    "reports.py"  = "routes\reports.py"
-    "species.py"  = "routes\species.py"
-    "sales.py"    = "routes\sales.py"
-}
-# Create empty __init__.py
-New-Item -ItemType File -Path "$InstallDir\routes\__init__.py" -Force | Out-Null
-foreach ($src in $routeMap.Keys) {
-    Copy-ProjectFile "$ScriptDir\$src" "$InstallDir\$($routeMap[$src])"
+New-Item -ItemType File -Path ($InstallDir + "\routes\__init__.py") -Force | Out-Null
+
+$routeFiles = @(
+    "main.py","tanks.py","articles.py","breeding.py","costs.py",
+    "gallery.py","labels.py","public.py","reports.py","species.py","sales.py"
+)
+foreach ($f in $routeFiles) {
+    Copy-If-Exists ($ScriptDir + "\" + $f) ($InstallDir + "\routes\" + $f)
 }
 
-# ── Templates — flat file name → correct template path mapping ─────────────
-$templateMap = @{
-    # base-level
-    "base.html"             = "templates\base.html"
-    "settings.html"         = "templates\settings.html"
-    "dashboard.html"        = "templates\dashboard.html"
-    # articles (new Phase 10)
-    "articles_list.html"    = "templates\articles\list.html"
-    "articles_form.html"    = "templates\articles\form.html"
-    "articles_detail.html"  = "templates\articles\detail.html"
-    # species
-    "species_detail.html"   = "templates\species\detail.html"
-    "species_list.html"     = "templates\species\list.html"
-    "species_form.html"     = "templates\species\form.html"
-    # tanks
-    "tanks_detail.html"     = "templates\tanks\detail.html"
-    "tanks_list.html"       = "templates\tanks\list.html"
-    "tanks_edit.html"       = "templates\tanks\edit.html"
-    "edit.html"             = "templates\tanks\edit.html"       # alternate flat name
-    # breeding
-    "breeding_list.html"    = "templates\breeding\list.html"
-    "breeding_form.html"    = "templates\breeding\form.html"
-    "list.html"             = "templates\breeding\list.html"    # alternate flat name
-    "form.html"             = "templates\breeding\form.html"    # alternate flat name
-    # sales
-    "sales_list.html"       = "templates\sales\list.html"
-    "sales_form.html"       = "templates\sales\form.html"
-    "customer_list.html"    = "templates\sales\customer_list.html"
-    "customer_detail.html"  = "templates\sales\customer_detail.html"
-    "customer_form.html"    = "templates\sales\customer_form.html"
-    # gallery
-    "gallery_index.html"    = "templates\gallery\index.html"
-    # public
-    "public_species.html"   = "templates\public\species.html"
-    # labels
-    "labels_index.html"     = "templates\labels\index.html"
-    # reports
-    "available_list.html"   = "templates\reports\available_list.html"
-    # costs
-    "cost_dashboard.html"   = "templates\costs\dashboard.html"
-    "feed_log.html"         = "templates\costs\feed_log.html"
-    "power.html"            = "templates\costs\power.html"
+$tplBase = $InstallDir + "\templates\"
+$tplMap  = @(
+    @{ s="base.html";            d="base.html" },
+    @{ s="settings.html";        d="settings.html" },
+    @{ s="dashboard.html";       d="dashboard.html" },
+    @{ s="articles_list.html";   d="articles\list.html" },
+    @{ s="articles_form.html";   d="articles\form.html" },
+    @{ s="articles_detail.html"; d="articles\detail.html" },
+    @{ s="species_detail.html";  d="species\detail.html" },
+    @{ s="species_list.html";    d="species\list.html" },
+    @{ s="species_form.html";    d="species\form.html" },
+    @{ s="tanks_detail.html";    d="tanks\detail.html" },
+    @{ s="tanks_list.html";      d="tanks\list.html" },
+    @{ s="edit.html";            d="tanks\edit.html" },
+    @{ s="list.html";            d="breeding\list.html" },
+    @{ s="form.html";            d="breeding\form.html" },
+    @{ s="sales_list.html";      d="sales\list.html" },
+    @{ s="sales_form.html";      d="sales\form.html" },
+    @{ s="customer_list.html";   d="sales\customer_list.html" },
+    @{ s="customer_detail.html"; d="sales\customer_detail.html" },
+    @{ s="customer_form.html";   d="sales\customer_form.html" },
+    @{ s="gallery_index.html";   d="gallery\index.html" },
+    @{ s="public_species.html";  d="public\species.html" },
+    @{ s="labels_index.html";    d="labels\index.html" },
+    @{ s="available_list.html";  d="reports\available_list.html" },
+    @{ s="cost_dashboard.html";  d="costs\dashboard.html" },
+    @{ s="feed_log.html";        d="costs\feed_log.html" },
+    @{ s="power.html";           d="costs\power.html" }
+)
+foreach ($t in $tplMap) {
+    Copy-If-Exists ($ScriptDir + "\" + $t.s) ($tplBase + $t.d)
 }
-foreach ($src in $templateMap.Keys) {
-    $srcPath = "$ScriptDir\$src"
-    $dstPath = "$InstallDir\$($templateMap[$src])"
-    # Don't overwrite an already-copied file with a lower-priority name
-    if ((Test-Path $srcPath) -and (-not (Test-Path $dstPath))) {
-        Copy-ProjectFile $srcPath $dstPath
-    } elseif (Test-Path $srcPath) {
-        Copy-ProjectFile $srcPath $dstPath
-    }
-}
-
 Write-Ok "File copy complete"
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 6. WRITE requirements.txt
-# ══════════════════════════════════════════════════════════════════════════════
-Write-Header "Step 6 — Writing requirements.txt"
-
-$requirements = @"
-# Mason Aquatics — Python dependencies
-Flask>=2.3.0
-Flask-SQLAlchemy>=3.1.0
-Pillow>=10.0.0
-reportlab>=4.0.0
-qrcode[pil]>=7.4.0
-"@
-
-# Prefer any requirements.txt already present in the source folder
-if (Test-Path "$ScriptDir\requirements.txt") {
-    Copy-Item "$ScriptDir\requirements.txt" "$InstallDir\requirements.txt" -Force
+# ── Step 6: requirements.txt ──────────────────────────────────────────────────
+Write-Header "Step 6 - requirements.txt"
+$srcReq = $ScriptDir + "\requirements.txt"
+if (Test-Path $srcReq) {
+    Copy-Item $srcReq $ReqFile -Force
     Write-Ok "Copied existing requirements.txt"
 } else {
-    $requirements | Set-Content "$InstallDir\requirements.txt" -Encoding UTF8
+    $lines = @(
+        "# Mason Aquatics - Python dependencies",
+        "Flask>=2.3.0",
+        "Flask-SQLAlchemy>=3.1.0",
+        "Pillow>=10.0.0",
+        "reportlab>=4.0.0",
+        "qrcode[pil]>=7.4.0"
+    )
+    $lines | Set-Content -Path $ReqFile -Encoding UTF8
     Write-Ok "Generated requirements.txt"
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 7. VIRTUAL ENVIRONMENT + PACKAGES
-# ══════════════════════════════════════════════════════════════════════════════
-Write-Header "Step 7 — Virtual Environment & Packages"
-
+# ── Step 7: Virtual environment and packages ──────────────────────────────────
+Write-Header "Step 7 - Virtual Environment and Packages"
 Write-Info "Creating virtual environment ..."
 & $PythonExe -m venv $VenvDir
 if (-not $?) { Write-Err "venv creation failed."; pause; exit 1 }
-Write-Ok "Virtual environment created at $VenvDir"
-
-$PipExe    = "$VenvDir\Scripts\pip.exe"
-$VenvPython = "$VenvDir\Scripts\python.exe"
+Write-Ok ("Created: " + $VenvDir)
 
 Write-Info "Upgrading pip ..."
 & $VenvPython -m pip install --upgrade pip --quiet
 Write-Ok "pip upgraded"
 
-Write-Info "Installing packages (this may take a few minutes) ..."
-& $PipExe install -r "$InstallDir\requirements.txt" --quiet
-if (-not $?) { Write-Err "Package installation failed."; pause; exit 1 }
+Write-Info "Installing packages (may take a few minutes) ..."
+& $VenvPip install -r $ReqFile --quiet
+if (-not $?) { Write-Err "Package install failed."; pause; exit 1 }
 Write-Ok "All packages installed"
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 8. INITIALISE DATABASE
-# ══════════════════════════════════════════════════════════════════════════════
-Write-Header "Step 8 — Database Initialisation"
+# ── Step 8: Initialise database ───────────────────────────────────────────────
+Write-Header "Step 8 - Database Initialisation"
 
-$initScript = @"
-import sys, os
-sys.path.insert(0, r'$InstallDir')
-os.chdir(r'$InstallDir')
-from app import create_app, init_db
-app = create_app()
-init_db(app)
-print('Database initialised successfully.')
-"@
+$initFile    = $env:TEMP + "\ma_init.py"
+$escapedPath = $InstallDir.Replace("\","\\")
+$initLines   = @(
+    "import sys, os",
+    ("sys.path.insert(0, '" + $escapedPath + "')"),
+    ("os.chdir('"           + $escapedPath + "')"),
+    "from app import create_app, init_db",
+    "app = create_app()",
+    "init_db(app)",
+    "print('Database ready.')"
+)
+$initLines | Set-Content -Path $initFile -Encoding UTF8
 
-$initPath = "$env:TEMP\ma_init_db.py"
-$initScript | Set-Content $initPath -Encoding UTF8
-
-& $VenvPython $initPath
+& $VenvPython $initFile
 if ($?) {
-    Write-Ok "SQLite database initialised (instance\mason_aquatics.db)"
+    Write-Ok "Database initialised (instance\mason_aquatics.db)"
 } else {
-    Write-Info "Database init returned an error — it may initialise on first run instead."
+    Write-Info "DB will auto-initialise on first run."
 }
-Remove-Item $initPath -Force -ErrorAction SilentlyContinue
+Remove-Item $initFile -Force -ErrorAction SilentlyContinue
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 9. CREATE LAUNCHER (Start-MasonAquatics.bat)
-# ══════════════════════════════════════════════════════════════════════════════
-Write-Header "Step 9 — Creating Launcher"
+# ── Step 9: Launcher batch file ───────────────────────────────────────────────
+Write-Header "Step 9 - Creating Launcher"
 
-$batContent = @"
-@echo off
-title Mason Aquatics
-cd /d "$InstallDir"
-echo.
-echo  ================================================
-echo    Mason Aquatics ^| Fish Room Management System
-echo    http://localhost:$Port
-echo  ================================================
-echo.
-echo  Press Ctrl+C to stop the server.
-echo.
-start "" "http://localhost:$Port"
-"$VenvDir\Scripts\python.exe" app.py
-pause
-"@
+$pyExeLine  = ('"' + $VenvDir + '\Scripts\python.exe" app.py')
+$browserCmd = ('start "" "http://localhost:' + $Port + '"')
+$cdCmd      = ('cd /d "' + $InstallDir + '"')
+$echoUrl    = ('echo    http://localhost:' + $Port)
 
-$batPath = "$InstallDir\Start-MasonAquatics.bat"
-$batContent | Set-Content $batPath -Encoding ASCII
-Write-Ok "Launcher created: $batPath"
+$batLines = @(
+    "@echo off",
+    "title Mason Aquatics",
+    $cdCmd,
+    "echo.",
+    "echo  ================================================",
+    "echo    Mason Aquatics - Fish Room Management System",
+    $echoUrl,
+    "echo  ================================================",
+    "echo.",
+    "echo  Press Ctrl+C to stop the server.",
+    "echo.",
+    $browserCmd,
+    $pyExeLine,
+    "pause"
+)
+$batLines | Set-Content -Path $BatPath -Encoding ASCII
+Write-Ok ("Launcher: " + $BatPath)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 10. DESKTOP SHORTCUT
-# ══════════════════════════════════════════════════════════════════════════════
-Write-Header "Step 10 — Desktop Shortcut"
-
+# ── Step 10: Desktop shortcut ─────────────────────────────────────────────────
+Write-Header "Step 10 - Desktop Shortcut"
 try {
-    $WshShell  = New-Object -ComObject WScript.Shell
-    $Shortcut  = $WshShell.CreateShortcut("$DesktopPath\Mason Aquatics.lnk")
-    $Shortcut.TargetPath       = $batPath
-    $Shortcut.WorkingDirectory = $InstallDir
-    $Shortcut.Description      = "Start the Mason Aquatics Fish Room Management System"
-    $Shortcut.IconLocation     = "shell32.dll,25"   # fish-like icon from shell32
-    $Shortcut.Save()
-    Write-Ok "Desktop shortcut created: $DesktopPath\Mason Aquatics.lnk"
+    $lnkPath  = $DesktopPath + "\Mason Aquatics.lnk"
+    $wsh      = New-Object -ComObject WScript.Shell
+    $lnk      = $wsh.CreateShortcut($lnkPath)
+    $lnk.TargetPath       = $BatPath
+    $lnk.WorkingDirectory = $InstallDir
+    $lnk.Description      = "Start Mason Aquatics Fish Room Management System"
+    $lnk.IconLocation     = "shell32.dll,25"
+    $lnk.Save()
+    Write-Ok ("Shortcut: " + $lnkPath)
 } catch {
-    Write-Info "Could not create shortcut automatically — run Start-MasonAquatics.bat directly."
+    Write-Info "Could not create shortcut - use Start-MasonAquatics.bat directly."
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 11. FIREWALL RULE (localhost only — port 5000)
-# ══════════════════════════════════════════════════════════════════════════════
-Write-Header "Step 11 — Firewall"
-
-$ruleName = "Mason Aquatics (port $Port)"
-$existing = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
-if ($existing) {
-    Write-Ok "Firewall rule already exists: '$ruleName'"
+# ── Step 11: Firewall ─────────────────────────────────────────────────────────
+Write-Header "Step 11 - Windows Firewall"
+$ruleName = "Mason Aquatics Port " + $Port
+if (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue) {
+    Write-Ok ("Rule already exists: " + $ruleName)
 } else {
     try {
         New-NetFirewallRule `
-            -DisplayName  $ruleName `
-            -Direction    Inbound `
-            -Protocol     TCP `
-            -LocalPort    $Port `
-            -Action       Allow `
-            -Profile      Private,Domain `
-            -Description  "Allows Mason Aquatics Flask server on port $Port (local network only)" `
-            | Out-Null
-        Write-Ok "Firewall rule created: '$ruleName' — TCP port $Port, private/domain networks"
+            -DisplayName $ruleName `
+            -Direction   Inbound `
+            -Protocol    TCP `
+            -LocalPort   $Port `
+            -Action      Allow `
+            -Profile     Private,Domain `
+            -Description "Mason Aquatics Flask server - local network only" | Out-Null
+        Write-Ok ("Rule created: TCP " + $Port + ", private/domain networks")
     } catch {
-        Write-Info "Could not create firewall rule automatically — you may need to add it manually."
+        Write-Info "Could not create firewall rule - add manually if needed."
     }
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 12. OPTIONAL — TASK SCHEDULER (auto-start on login)
-# ══════════════════════════════════════════════════════════════════════════════
-Write-Header "Step 12 — Auto-Start (Optional)"
+# ── Step 12: Auto-start ───────────────────────────────────────────────────────
+Write-Header "Step 12 - Auto-Start at Login (Optional)"
+$ans = ""
+while ($ans -notin @("Y","N","y","n")) { $ans = Read-Host "  Auto-start on Windows login? (Y/N)" }
 
-$autoStart = $null
-while ($autoStart -notin @('Y','N','y','n')) {
-    $autoStart = Read-Host "  Auto-start Mason Aquatics when Windows logs in? (Y/N)"
-}
-
-if ($autoStart -in @('Y','y')) {
+if ($ans -in @("Y","y")) {
     $taskName = "MasonAquatics"
-    $action   = New-ScheduledTaskAction -Execute $batPath -WorkingDirectory $InstallDir
+    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+    $action   = New-ScheduledTaskAction -Execute $BatPath -WorkingDirectory $InstallDir
     $trigger  = New-ScheduledTaskTrigger -AtLogOn
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit 0
-    $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
-
-    # Remove any previous registration
-    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
-
-    Register-ScheduledTask `
-        -TaskName  $taskName `
-        -Action    $action `
-        -Trigger   $trigger `
-        -Settings  $settings `
-        -Principal $principal `
-        -Description "Starts Mason Aquatics Fish Room system at login" `
-        | Out-Null
-
-    Write-Ok "Task Scheduler task registered: '$taskName' — runs at login for $env:USERNAME"
+    $taskPrin = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
+    Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger `
+        -Settings $settings -Principal $taskPrin -Description "Starts Mason Aquatics at login" | Out-Null
+    Write-Ok ("Task registered - runs at login for " + $env:USERNAME)
 } else {
-    Write-Info "Skipped auto-start. Use the desktop shortcut or Start-MasonAquatics.bat to launch."
+    Write-Info "Skipped. Use the Desktop shortcut to launch."
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 13. LAUNCH
-# ══════════════════════════════════════════════════════════════════════════════
-Write-Header "Step 13 — Launch"
-
-$launch = $null
-while ($launch -notin @('Y','N','y','n')) {
-    $launch = Read-Host "  Launch Mason Aquatics now? (Y/N)"
-}
-
-if ($launch -in @('Y','y')) {
-    Write-Info "Starting server — your browser will open at http://localhost:$Port ..."
-    Start-Process -FilePath $batPath
+# ── Step 13: Launch ───────────────────────────────────────────────────────────
+Write-Header "Step 13 - Launch"
+$go = ""
+while ($go -notin @("Y","N","y","n")) { $go = Read-Host "  Launch Mason Aquatics now? (Y/N)" }
+if ($go -in @("Y","y")) {
+    Write-Info ("Opening http://localhost:" + $Port + " ...")
+    Start-Process -FilePath $BatPath
 } else {
-    Write-Info "To start later, double-click 'Mason Aquatics' on your Desktop."
+    Write-Info "Use the Desktop shortcut or Start-MasonAquatics.bat to launch."
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
-# COMPLETE
-# ══════════════════════════════════════════════════════════════════════════════
 Write-Host ""
-Write-Host "  ════════════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "   Mason Aquatics installed successfully!" -ForegroundColor Green
-Write-Host "   Install path : $InstallDir" -ForegroundColor White
-Write-Host "   App URL      : http://localhost:$Port" -ForegroundColor White
-Write-Host "   Launcher     : $batPath" -ForegroundColor White
-Write-Host "  ════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "  ================================================" -ForegroundColor Green
+Write-Host "   Installation complete!" -ForegroundColor Green
+Write-Host ("   Path : " + $InstallDir) -ForegroundColor White
+Write-Host ("   URL  : http://localhost:" + $Port) -ForegroundColor White
+Write-Host "  ================================================" -ForegroundColor Green
 Write-Host ""
 pause
