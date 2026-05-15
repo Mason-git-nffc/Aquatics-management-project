@@ -1,2 +1,2 @@
 # Aquatics-management-project
-Mason Aquatics fishrrrom management app
+Mason Aquatics fishroom management app
