@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Customers — Mason Aquatics{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1><i class="fa-solid fa-users" style="color:var(--accent)"></i> Customers</h1>
+    <div class="breadcrumb">{{ customers | length }} registered customer{{ 's' if customers | length != 1 }}</div>
+  </div>
+  <a href="{{ url_for('sales.add_customer') }}" class="btn btn-primary">
+    <i class="fa-solid fa-plus"></i> Add Customer
+  </a>
+</div>
+
+{% if customers %}
+<div class="card" style="padding:0; overflow:hidden;">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Store Credit</th>
+          <th>Total Sales</th>
+          <th style="width:110px">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in customers %}
+        <tr>
+          <td>
+            <a href="{{ url_for('sales.customer_detail', customer_id=c.id) }}"
+               style="font-weight:600; color:var(--text-heading); text-decoration:none;">
+              {{ c.name }}
+            </a>
+          </td>
+          <td style="color:var(--text-muted); font-size:0.85rem;">{{ c.phone or '—' }}</td>
+          <td style="color:var(--text-muted); font-size:0.85rem;">{{ c.email or '—' }}</td>
+          <td>
+            {% set credit = c.store_credit_gbp or 0 %}
+            <span class="badge {{ 'badge-success' if credit > 0 else '' }}"
+                  {% if credit <= 0 %}style="background:var(--bg-input); color:var(--text-muted);"{% endif %}>
+              £{{ '%.2f' | format(credit) }}
+            </span>
+          </td>
+          <td>{{ c.sales | length }}</td>
+          <td>
+            <div style="display:flex; gap:0.35rem;">
+              <a href="{{ url_for('sales.customer_detail', customer_id=c.id) }}"
+                 class="btn btn-secondary btn-sm" title="View">
+                <i class="fa-solid fa-eye"></i>
+              </a>
+              <a href="{{ url_for('sales.edit_customer', customer_id=c.id) }}"
+                 class="btn btn-secondary btn-sm" title="Edit">
+                <i class="fa-solid fa-pen"></i>
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% else %}
+<div class="card">
+  <div style="text-align:center; padding:4rem 2rem; color:var(--text-muted);">
+    <i class="fa-solid fa-users"
+       style="font-size:3rem; color:var(--border); display:block; margin-bottom:1rem;"></i>
+    <p>No customers added yet.</p>
+    <a href="{{ url_for('sales.add_customer') }}" class="btn btn-primary"
+       style="margin-top:0.75rem;">
+      <i class="fa-solid fa-plus"></i> Add First Customer
+    </a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
