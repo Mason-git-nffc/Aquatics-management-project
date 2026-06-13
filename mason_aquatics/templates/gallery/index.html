@@ -1,0 +1,497 @@
+{% extends "base.html" %}
+{% block title %}Gallery — Mason Aquatics{% endblock %}
+
+{% block head %}
+<style>
+  /* ── Toolbar ──────────────────────────────────────────────────────────── */
+  .gallery-toolbar {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem 1.1rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .view-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .view-toggle a {
+    padding: 0.38rem 0.9rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--text-muted);
+    background: var(--bg-input);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: background 0.12s, color 0.12s;
+  }
+
+  .view-toggle a:not(:last-child) { border-right: 1px solid var(--border); }
+  .view-toggle a.active            { background: var(--accent); color: #fff; }
+  .view-toggle a:hover:not(.active) { background: rgba(33,150,243,0.08); color: var(--accent); }
+
+  .gallery-toolbar select {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.38rem 0.65rem;
+    color: var(--text-primary);
+    font-size: 0.82rem;
+    font-family: inherit;
+    outline: none;
+  }
+
+  .gallery-toolbar select:focus { border-color: var(--accent); }
+
+  /* ── Photo grid ───────────────────────────────────────────────────────── */
+  .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+    gap: 0.65rem;
+  }
+
+  .photo-thumb {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 7px;
+    overflow: hidden;
+    cursor: pointer;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    transition: border-color 0.15s, transform 0.15s;
+  }
+
+  .photo-thumb:hover {
+    border-color: var(--accent);
+    transform: scale(1.02);
+  }
+
+  .photo-thumb img {
+    width: 100%; height: 100%;
+    object-fit: cover; display: block;
+    transition: opacity 0.15s;
+  }
+
+  .photo-thumb:hover img { opacity: 0.88; }
+
+  .photo-thumb-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 55%);
+    opacity: 0;
+    transition: opacity 0.18s;
+    display: flex;
+    align-items: flex-end;
+    padding: 0.5rem 0.6rem;
+  }
+
+  .photo-thumb:hover .photo-thumb-overlay { opacity: 1; }
+
+  .photo-thumb-caption {
+    font-size: 0.72rem;
+    color: #fff;
+    font-weight: 500;
+    line-height: 1.2;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .primary-badge {
+    position: absolute;
+    top: 0.4rem; right: 0.4rem;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 0.15rem 0.45rem;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* ── Grouped view ─────────────────────────────────────────────────────── */
+  .species-group { margin-bottom: 2rem; }
+
+  .species-group-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .species-group-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-heading);
+    text-decoration: none;
+  }
+
+  .species-group-name:hover { color: var(--accent); }
+
+  .species-group-sci {
+    font-style: italic;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+
+  .species-group-count {
+    margin-left: auto;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.15rem 0.5rem;
+  }
+
+  /* ── Lightbox ──────────────────────────────────────────────────────────── */
+  #lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    background: rgba(0,0,0,0.93);
+    align-items: center;
+    justify-content: center;
+  }
+
+  #lightbox.open { display: flex; }
+
+  #lightbox img {
+    max-width: 90vw;
+    max-height: 85vh;
+    object-fit: contain;
+    border-radius: 6px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+    user-select: none;
+  }
+
+  .lb-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255,255,255,0.12);
+    border: none;
+    color: #fff;
+    font-size: 1.4rem;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.15s;
+  }
+
+  .lb-nav-btn:hover    { background: rgba(255,255,255,0.22); }
+  .lb-nav-btn.prev     { left: 1rem; }
+  .lb-nav-btn.next     { right: 1rem; }
+
+  .lb-close-btn {
+    position: absolute;
+    top: 1rem; right: 1rem;
+    background: rgba(255,255,255,0.15);
+    border: none;
+    color: #fff;
+    font-size: 1.1rem;
+    padding: 0.45rem 0.75rem;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.15s;
+  }
+
+  .lb-close-btn:hover { background: rgba(255,255,255,0.28); }
+
+  .lb-info {
+    position: absolute;
+    bottom: 1.25rem;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    color: rgba(255,255,255,0.85);
+  }
+
+  .lb-info-name   { font-size: 0.95rem; font-weight: 600; }
+  .lb-info-caption { font-size: 0.75rem; color: rgba(255,255,255,0.6); margin-top: 0.2rem; }
+  .lb-counter     { font-size: 0.7rem; color: rgba(255,255,255,0.45); margin-top: 0.3rem; }
+
+  /* ── Empty state ──────────────────────────────────────────────────────── */
+  .empty-state {
+    text-align: center; padding: 5rem 2rem; color: var(--text-muted);
+  }
+  .empty-state i {
+    font-size: 3rem; display: block;
+    margin-bottom: 1rem; color: var(--border);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1><i class="fa-solid fa-images" style="color:var(--accent)"></i> Gallery</h1>
+    <div class="breadcrumb">{{ total_photos }} photo{{ 's' if total_photos != 1 }}</div>
+  </div>
+</div>
+
+<!-- ── Toolbar ──────────────────────────────────────────────────────────── -->
+<div class="gallery-toolbar">
+  <!-- View mode toggle -->
+  <div class="view-toggle">
+    <a href="{{ url_for('gallery.index', view='grouped', species_id=selected_species) }}"
+       class="{{ 'active' if view_mode == 'grouped' }}">
+      <i class="fa-solid fa-layer-group"></i> By Species
+    </a>
+    <a href="{{ url_for('gallery.index', view='all', species_id=selected_species) }}"
+       class="{{ 'active' if view_mode == 'all' }}">
+      <i class="fa-solid fa-grip"></i> All Photos
+    </a>
+  </div>
+
+  <!-- Species filter -->
+  <form method="GET" action="{{ url_for('gallery.index') }}"
+        style="display:flex; align-items:center; gap:0.5rem; flex:1;">
+    <input type="hidden" name="view" value="{{ view_mode }}" />
+    <select name="species_id" onchange="this.form.submit()">
+      <option value="">All Species</option>
+      {% for s in all_species %}
+      <option value="{{ s.id }}"
+        {{ 'selected' if selected_species == s.id | string }}>
+        {{ s.common_name }}
+      </option>
+      {% endfor %}
+    </select>
+    {% if selected_species %}
+    <a href="{{ url_for('gallery.index', view=view_mode) }}"
+       class="btn btn-secondary btn-sm">
+      <i class="fa-solid fa-xmark"></i> Clear
+    </a>
+    {% endif %}
+  </form>
+
+  <span style="font-size:0.78rem; color:var(--text-muted); margin-left:auto;">
+    {{ total_photos }} photo{{ 's' if total_photos != 1 }}
+  </span>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     GROUPED VIEW
+═══════════════════════════════════════════════════════════════════════════ -->
+{% if view_mode == 'grouped' %}
+
+  {% if groups %}
+    {% for species, photos in groups %}
+    <div class="species-group">
+
+      <div class="species-group-header">
+        <a href="{{ url_for('species.detail', species_id=species.id) }}"
+           class="species-group-name">
+          {{ species.common_name }}
+        </a>
+        {% if species.scientific_name %}
+        <span class="species-group-sci">{{ species.scientific_name }}</span>
+        {% endif %}
+        <span class="species-group-count">
+          {{ photos | length }} photo{{ 's' if photos | length != 1 }}
+        </span>
+      </div>
+
+      <div class="photo-grid">
+        {% for photo in photos %}
+        <div class="photo-thumb"
+             onclick="openLightbox({{ loop.index0 }}, '{{ species.common_name }}', galleryData['s{{ species.id }}'])"
+             data-species="{{ species.id }}"
+             data-index="{{ loop.index0 }}">
+          <img src="{{ url_for('static', filename='uploads/photos/' ~ photo.filename) }}"
+               alt="{{ photo.caption or species.common_name }}"
+               loading="lazy" />
+          {% if photo.is_primary %}
+          <span class="primary-badge">Primary</span>
+          {% endif %}
+          <div class="photo-thumb-overlay">
+            <div class="photo-thumb-caption">
+              {{ photo.caption or species.common_name }}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+    </div>
+    {% endfor %}
+
+  {% else %}
+  <div class="empty-state">
+    <i class="fa-solid fa-images"></i>
+    <p>No photos yet.
+      {% if selected_species %}
+      Try clearing the species filter.
+      {% else %}
+      Upload photos from any <a href="{{ url_for('species.list_species') }}">species page</a>.
+      {% endif %}
+    </p>
+  </div>
+  {% endif %}
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     FLAT "ALL PHOTOS" VIEW
+═══════════════════════════════════════════════════════════════════════════ -->
+{% else %}
+
+  {% if photos_flat %}
+  <div class="photo-grid">
+    {% for entry in photos_flat %}
+    <div class="photo-thumb"
+         onclick="openLightboxFlat({{ loop.index0 }})">
+      <img src="{{ url_for('static', filename='uploads/photos/' ~ entry.photo.filename) }}"
+           alt="{{ entry.photo.caption or entry.species.common_name }}"
+           loading="lazy" />
+      {% if entry.photo.is_primary %}
+      <span class="primary-badge">Primary</span>
+      {% endif %}
+      <div class="photo-thumb-overlay">
+        <div class="photo-thumb-caption">
+          {{ entry.species.common_name }}
+          {% if entry.photo.caption %} — {{ entry.photo.caption }}{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div class="empty-state">
+    <i class="fa-solid fa-images"></i>
+    <p>No photos yet.
+      {% if selected_species %}
+      Try clearing the species filter.
+      {% else %}
+      Upload photos from any <a href="{{ url_for('species.list_species') }}">species page</a>.
+      {% endif %}
+    </p>
+  </div>
+  {% endif %}
+
+{% endif %}
+
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     LIGHTBOX
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="lightbox" role="dialog" aria-modal="true" aria-label="Photo viewer">
+  <button class="lb-close-btn" onclick="closeLightbox()" aria-label="Close">
+    <i class="fa-solid fa-xmark"></i>
+  </button>
+  <button class="lb-nav-btn prev" onclick="navLightbox(-1)" aria-label="Previous">
+    <i class="fa-solid fa-chevron-left"></i>
+  </button>
+  <img id="lbImg" src="" alt="" />
+  <button class="lb-nav-btn next" onclick="navLightbox(1)" aria-label="Next">
+    <i class="fa-solid fa-chevron-right"></i>
+  </button>
+  <div class="lb-info">
+    <div class="lb-info-name"    id="lbName"></div>
+    <div class="lb-info-caption" id="lbCaption"></div>
+    <div class="lb-counter"      id="lbCounter"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Build JS data structures from server data ─────────────────────────────
+
+// Grouped mode: keyed by species id → array of {src, caption}
+const galleryData = {};
+{% if view_mode == 'grouped' %}
+{% for species, photos in groups %}
+galleryData['s{{ species.id }}'] = [
+  {% for photo in photos %}
+  {
+    src:     "{{ url_for('static', filename='uploads/photos/' ~ photo.filename) }}",
+    caption: {{ (photo.caption or '') | tojson }},
+    name:    {{ species.common_name | tojson }}
+  }{% if not loop.last %},{% endif %}
+  {% endfor %}
+];
+{% endfor %}
+{% endif %}
+
+// Flat mode: single array of {src, caption, name}
+const flatData = [
+{% if view_mode == 'all' %}
+  {% for entry in photos_flat %}
+  {
+    src:     "{{ url_for('static', filename='uploads/photos/' ~ entry.photo.filename) }}",
+    caption: {{ (entry.photo.caption or '') | tojson }},
+    name:    {{ entry.species.common_name | tojson }}
+  }{% if not loop.last %},{% endif %}
+  {% endfor %}
+{% endif %}
+];
+
+// ── Lightbox state ────────────────────────────────────────────────────────
+let lbCurrent = 0;
+let lbItems   = [];
+
+function openLightbox(index, speciesName, items) {
+  lbItems   = items;
+  lbCurrent = index;
+  showLbItem();
+  document.getElementById('lightbox').classList.add('open');
+  document.addEventListener('keydown', lbKeyHandler);
+}
+
+function openLightboxFlat(index) {
+  lbItems   = flatData;
+  lbCurrent = index;
+  showLbItem();
+  document.getElementById('lightbox').classList.add('open');
+  document.addEventListener('keydown', lbKeyHandler);
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.removeEventListener('keydown', lbKeyHandler);
+}
+
+function navLightbox(dir) {
+  if (!lbItems.length) return;
+  lbCurrent = (lbCurrent + dir + lbItems.length) % lbItems.length;
+  showLbItem();
+}
+
+function showLbItem() {
+  const item = lbItems[lbCurrent];
+  if (!item) return;
+  document.getElementById('lbImg').src      = item.src;
+  document.getElementById('lbImg').alt      = item.name;
+  document.getElementById('lbName').textContent    = item.name;
+  document.getElementById('lbCaption').textContent = item.caption || '';
+  document.getElementById('lbCounter').textContent =
+    `${lbCurrent + 1} / ${lbItems.length}`;
+}
+
+function lbKeyHandler(e) {
+  if (e.key === 'ArrowLeft')  navLightbox(-1);
+  if (e.key === 'ArrowRight') navLightbox(1);
+  if (e.key === 'Escape')     closeLightbox();
+}
+
+// Close on backdrop click
+document.getElementById('lightbox').addEventListener('click', function(e) {
+  if (e.target === this) closeLightbox();
+});
+</script>
+{% endblock %}
