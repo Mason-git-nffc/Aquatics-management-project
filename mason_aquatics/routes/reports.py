@@ -1,342 +1,384 @@
 """
-Mason Aquatics — Reports & Available List PDF
+Mason Aquatics — Reports Blueprint  (Phase 7)
 Place this file at: routes/reports.py
 
-GET  /reports/available-list         → HTML preview + filter form
-POST /reports/available-list/pdf     → stream PDF download
+Endpoints
+---------
+GET  /reports/available-list              HTML preview + filter form
+POST /reports/available-list/pdf          Stream PDF download
 """
 
-import os
 import io
 from datetime import date, datetime
 
 from flask import (
-    Blueprint, render_template, request, send_file, current_app
+    Blueprint, render_template, request, make_response, flash, redirect, url_for
 )
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import mm
 from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm
 from reportlab.platypus import (
     SimpleDocTemplate, Table, TableStyle, Paragraph,
-    Spacer, HRFlowable,
+    Spacer, HRFlowable
 )
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
-from reportlab.pdfbase import pdfmetrics
 
-from models import Species
+from models import db, Species
 
 reports_bp = Blueprint('reports', __name__)
+
+# ── Brand colours ─────────────────────────────────────────────────────────────
+ACCENT      = colors.HexColor('#2196F3')
+ACCENT_DARK = colors.HexColor('#1565C0')
+LIGHT_BG    = colors.HexColor('#E3F2FD')
+HEADER_BG   = colors.HexColor('#0D47A1')
+ROW_ALT     = colors.HexColor('#F5F9FF')
+TEXT_DARK   = colors.HexColor('#1A1A2E')
+TEXT_MUTED  = colors.HexColor('#546E7A')
+SUCCESS     = colors.HexColor('#2E7D32')
+WARNING     = colors.HexColor('#E65100')
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _format_prices(wharf_prices):
-    """Format wharf price tiers as a readable string."""
-    if not wharf_prices:
+def _format_wharf_prices(species):
+    """Return tier string like '1 for £3.00 | 6 for £15.00' or '—'."""
+    tiers = sorted(species.wharf_prices, key=lambda w: w.quantity)
+    if not tiers:
         return '—'
-    parts = []
-    for wp in sorted(wharf_prices, key=lambda p: p.quantity):
-        parts.append(f'{wp.quantity} for £{wp.price_gbp:.2f}')
-    return ' | '.join(parts)
+    return ' | '.join(f"{w.quantity} for £{w.price_gbp:.2f}" for w in tiers)
 
 
-def _get_filtered_species(stock_filter, threshold, selected_ids):
-    """Return species list matching the chosen filter."""
-    query = Species.query.order_by(Species.common_name)
-    all_species = query.all()
+def _apply_filter(form):
+    """
+    Return (species_list, filter_mode, threshold, selected_ids).
+    filter_mode: 'in_stock' | 'all' | 'threshold' | 'selected'
+    """
+    mode        = form.get('filter_mode', 'in_stock')
+    threshold   = None
+    selected_ids = []
 
-    if stock_filter == 'in_stock':
-        return [s for s in all_species if s.current_stock > 0]
-    elif stock_filter == 'threshold':
+    all_sp = Species.query.order_by(Species.common_name).all()
+
+    if mode == 'in_stock':
+        result = [s for s in all_sp if s.current_stock > 0]
+
+    elif mode == 'all':
+        result = all_sp
+
+    elif mode == 'threshold':
         try:
-            t = int(threshold or 1)
+            threshold = int(form.get('threshold', 1))
         except (ValueError, TypeError):
-            t = 1
-        return [s for s in all_species if s.current_stock >= t]
-    elif stock_filter == 'selected' and selected_ids:
-        id_set = set(int(i) for i in selected_ids if i)
-        return [s for s in all_species if s.id in id_set]
-    else:  # 'all'
-        return all_species
+            threshold = 1
+        result = [s for s in all_sp if s.current_stock > threshold]
+
+    elif mode == 'selected':
+        raw = form.getlist('species_ids')
+        try:
+            selected_ids = [int(x) for x in raw if x]
+        except ValueError:
+            selected_ids = []
+        result = [s for s in all_sp if s.id in selected_ids]
+
+    else:
+        result = [s for s in all_sp if s.current_stock > 0]
+
+    return result, mode, threshold, selected_ids
 
 
-# ── Routes ────────────────────────────────────────────────────────────────────
+# ── HTML preview ──────────────────────────────────────────────────────────────
 
-@reports_bp.route('/available-list', methods=['GET'])
+@reports_bp.route('/available-list', methods=['GET', 'POST'])
 def available_list():
-    """Render HTML preview of available list with filter form."""
-    stock_filter  = request.args.get('stock_filter', 'in_stock')
-    threshold     = request.args.get('threshold', '1')
-    selected_ids  = request.args.getlist('species_ids')
+    all_species = Species.query.order_by(Species.common_name).all()
 
-    all_species   = Species.query.order_by(Species.common_name).all()
-    preview_list  = _get_filtered_species(stock_filter, threshold, selected_ids)
+    # POST = regenerate preview; GET = default in-stock view
+    form        = request.form if request.method == 'POST' else request.args
+    mode        = form.get('filter_mode', 'in_stock')
+    threshold   = form.get('threshold', '1')
+    selected_ids_raw = form.getlist('species_ids')
+
+    try:
+        selected_ids = [int(x) for x in selected_ids_raw if x]
+    except ValueError:
+        selected_ids = []
+    try:
+        threshold_int = int(threshold) if threshold else 1
+    except ValueError:
+        threshold_int = 1
+
+    # Build preview list
+    if mode == 'in_stock':
+        preview = [s for s in all_species if s.current_stock > 0]
+    elif mode == 'all':
+        preview = list(all_species)
+    elif mode == 'threshold':
+        preview = [s for s in all_species if s.current_stock > threshold_int]
+    elif mode == 'selected':
+        preview = [s for s in all_species if s.id in selected_ids]
+    else:
+        preview = [s for s in all_species if s.current_stock > 0]
+
+    today_str = date.today().strftime('%d %B %Y')
 
     return render_template(
         'reports/available_list.html',
-        all_species=all_species,
-        preview_list=preview_list,
-        stock_filter=stock_filter,
-        threshold=threshold,
-        selected_ids=selected_ids,
-        today=date.today().strftime('%d/%m/%Y'),
+        all_species   = all_species,
+        preview       = preview,
+        filter_mode   = mode,
+        threshold     = threshold,
+        selected_ids  = selected_ids,
+        today_str     = today_str,
+        format_prices = _format_wharf_prices,
     )
 
 
+# ── PDF download ──────────────────────────────────────────────────────────────
+
 @reports_bp.route('/available-list/pdf', methods=['POST'])
 def available_list_pdf():
-    """Generate and stream the Available List PDF."""
-    stock_filter = request.form.get('stock_filter', 'in_stock')
-    threshold    = request.form.get('threshold', '1')
-    selected_ids = request.form.getlist('species_ids')
+    species_list, mode, threshold, selected_ids = _apply_filter(request.form)
 
-    species_list = _get_filtered_species(stock_filter, threshold, selected_ids)
+    if not species_list:
+        flash('No species matched your filter — PDF not generated.', 'warning')
+        return redirect(url_for('reports.available_list'))
 
     buf = io.BytesIO()
     _build_pdf(buf, species_list)
     buf.seek(0)
 
-    filename = f'mason_aquatics_available_{date.today().isoformat()}.pdf'
-    return send_file(
-        buf,
-        as_attachment=True,
-        download_name=filename,
-        mimetype='application/pdf',
-    )
+    filename = f"mason_aquatics_available_{date.today().isoformat()}.pdf"
+    response = make_response(buf.read())
+    response.headers['Content-Type']        = 'application/pdf'
+    response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
 
 
-# ── PDF Builder ───────────────────────────────────────────────────────────────
+# ── PDF builder ───────────────────────────────────────────────────────────────
 
-def _build_pdf(buf, species_list):
-    """Build the Available List PDF into a BytesIO buffer."""
+def _build_pdf(buffer, species_list):
     PAGE_W, PAGE_H = A4
     MARGIN = 18 * mm
 
-    # ── Styles ────────────────────────────────────────────────────────────────
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize    = A4,
+        leftMargin  = MARGIN,
+        rightMargin = MARGIN,
+        topMargin   = MARGIN,
+        bottomMargin= MARGIN + 8 * mm,
+        title       = 'Mason Aquatics — Available Stock List',
+        author      = 'Mason Aquatics',
+    )
+
     styles = getSampleStyleSheet()
 
-    accent      = colors.HexColor('#2196F3')
-    dark        = colors.HexColor('#0d1117')
-    muted       = colors.HexColor('#57606a')
-    light_bg    = colors.HexColor('#f4f6f8')
-    header_bg   = colors.HexColor('#2196F3')
-    row_alt     = colors.HexColor('#f0f5fb')
-
+    # ── Custom styles ──────────────────────────────────────────────────────
     title_style = ParagraphStyle(
-        'MATItle',
-        fontSize=18,
-        fontName='Helvetica-Bold',
-        textColor=accent,
-        spaceAfter=2,
+        'MATitle',
+        fontSize    = 18,
+        fontName    = 'Helvetica-Bold',
+        textColor   = colors.white,
+        alignment   = TA_LEFT,
+        spaceAfter  = 0,
     )
-    sub_style = ParagraphStyle(
-        'MASub',
-        fontSize=9,
-        fontName='Helvetica',
-        textColor=muted,
-        spaceAfter=0,
+    subtitle_style = ParagraphStyle(
+        'MASubtitle',
+        fontSize   = 9,
+        fontName   = 'Helvetica',
+        textColor  = colors.HexColor('#BBDEFB'),
+        alignment  = TA_LEFT,
     )
-    date_style = ParagraphStyle(
-        'MADate',
-        fontSize=8,
-        fontName='Helvetica',
-        textColor=muted,
-        alignment=TA_RIGHT,
+    col_header_style = ParagraphStyle(
+        'MAColHeader',
+        fontSize   = 8,
+        fontName   = 'Helvetica-Bold',
+        textColor  = colors.white,
+        alignment  = TA_CENTER,
     )
     cell_normal = ParagraphStyle(
-        'Cell',
-        fontSize=9,
-        fontName='Helvetica',
-        textColor=dark,
-        leading=12,
+        'MACellNormal',
+        fontSize   = 8.5,
+        fontName   = 'Helvetica',
+        textColor  = TEXT_DARK,
+        alignment  = TA_LEFT,
     )
     cell_italic = ParagraphStyle(
-        'CellItalic',
-        fontSize=9,
-        fontName='Helvetica-Oblique',
-        textColor=muted,
-        leading=12,
+        'MACellItalic',
+        fontSize   = 8,
+        fontName   = 'Helvetica-Oblique',
+        textColor  = TEXT_MUTED,
+        alignment  = TA_LEFT,
     )
-    cell_bold = ParagraphStyle(
-        'CellBold',
-        fontSize=9,
-        fontName='Helvetica-Bold',
-        textColor=dark,
-        leading=12,
+    cell_center = ParagraphStyle(
+        'MACellCenter',
+        fontSize   = 9,
+        fontName   = 'Helvetica-Bold',
+        textColor  = TEXT_DARK,
+        alignment  = TA_CENTER,
     )
-    cell_right = ParagraphStyle(
-        'CellRight',
-        fontSize=9,
-        fontName='Helvetica',
-        textColor=dark,
-        alignment=TA_RIGHT,
-        leading=12,
-    )
-
-    # ── Document ──────────────────────────────────────────────────────────────
-    doc = SimpleDocTemplate(
-        buf,
-        pagesize=A4,
-        leftMargin=MARGIN,
-        rightMargin=MARGIN,
-        topMargin=MARGIN,
-        bottomMargin=MARGIN + 8 * mm,   # room for footer
-        title='Mason Aquatics — Available Stock List',
+    cell_price = ParagraphStyle(
+        'MACellPrice',
+        fontSize   = 8,
+        fontName   = 'Helvetica',
+        textColor  = TEXT_DARK,
+        alignment  = TA_LEFT,
     )
 
-    today_str = date.today().strftime('%d %B %Y')
-    story = []
-
-    # ── Header block ──────────────────────────────────────────────────────────
-    from reportlab.platypus import Table as RLTable
-
-    header_data = [[
-        Paragraph('Mason Aquatics', title_style),
-        Paragraph(f'Generated: {today_str}', date_style),
-    ]]
-    header_table = RLTable(
-        header_data,
-        colWidths=[PAGE_W - 2 * MARGIN - 50 * mm, 50 * mm],
-    )
-    header_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
-    ]))
-    story.append(header_table)
-    story.append(Paragraph('Available Stock List', sub_style))
-    story.append(Spacer(1, 3 * mm))
-    story.append(HRFlowable(
-        width='100%',
-        thickness=2,
-        color=accent,
-        spaceAfter=4 * mm,
-    ))
-
-    # ── Summary line ──────────────────────────────────────────────────────────
-    total_species = len(species_list)
-    total_fish    = sum(s.current_stock for s in species_list)
-    summary_style = ParagraphStyle(
-        'Summary',
-        fontSize=8,
-        fontName='Helvetica',
-        textColor=muted,
-        spaceAfter=4 * mm,
-    )
-    story.append(Paragraph(
-        f'{total_species} species listed &nbsp;·&nbsp; '
-        f'{total_fish} fish available',
-        summary_style,
-    ))
-
-    # ── Table ─────────────────────────────────────────────────────────────────
-    usable_w = PAGE_W - 2 * MARGIN
-
-    # Column widths: Name | Scientific | Stock | Prices
-    col_widths = [
-        usable_w * 0.26,
-        usable_w * 0.30,
-        usable_w * 0.10,
-        usable_w * 0.34,
+    # ── Column widths ──────────────────────────────────────────────────────
+    usable = PAGE_W - 2 * MARGIN
+    COL_W = [
+        usable * 0.27,   # Common Name
+        usable * 0.27,   # Scientific Name
+        usable * 0.10,   # Stock
+        usable * 0.36,   # Wharf Prices
     ]
 
-    # Header row
-    table_data = [[
-        Paragraph('Common Name', ParagraphStyle(
-            'TH', fontSize=8, fontName='Helvetica-Bold',
-            textColor=colors.white)),
-        Paragraph('Scientific Name', ParagraphStyle(
-            'TH2', fontSize=8, fontName='Helvetica-Bold',
-            textColor=colors.white)),
-        Paragraph('Stock', ParagraphStyle(
-            'TH3', fontSize=8, fontName='Helvetica-Bold',
-            textColor=colors.white, alignment=TA_CENTER)),
-        Paragraph('Wharf Sale Price(s)', ParagraphStyle(
-            'TH4', fontSize=8, fontName='Helvetica-Bold',
-            textColor=colors.white)),
+    # ── Content list ───────────────────────────────────────────────────────
+    story = []
+
+    today_str = datetime.now().strftime('%d %B %Y')
+    gen_time  = datetime.now().strftime('%H:%M')
+
+    # ── Header banner (drawn as a coloured table) ──────────────────────────
+    header_table = Table(
+        [[
+            Paragraph('Mason Aquatics', title_style),
+            Paragraph(
+                f'Available Stock List<br/>'
+                f'<font size="8" color="#BBDEFB">Generated: {today_str} at {gen_time}</font>',
+                subtitle_style
+            ),
+        ]],
+        colWidths=[usable * 0.5, usable * 0.5],
+    )
+    header_table.setStyle(TableStyle([
+        ('BACKGROUND',   (0, 0), (-1, -1), HEADER_BG),
+        ('TOPPADDING',   (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING',(0, 0), (-1, -1), 10),
+        ('LEFTPADDING',  (0, 0), (-1, -1), 14),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 14),
+        ('VALIGN',       (0, 0), (-1, -1), 'MIDDLE'),
+        ('ROUNDEDCORNERS', [4, 4, 4, 4]),
+    ]))
+    story.append(header_table)
+    story.append(Spacer(1, 4 * mm))
+
+    # ── Summary strip ──────────────────────────────────────────────────────
+    total_fish = sum(s.current_stock for s in species_list)
+    summary_data = [[
+        Paragraph(f'<b>{len(species_list)}</b> species listed', cell_normal),
+        Paragraph(f'<b>{total_fish}</b> fish available', cell_normal),
+        Paragraph(f'<b>{today_str}</b>', cell_normal),
     ]]
+    summary_table = Table(summary_data, colWidths=[usable / 3] * 3)
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND',    (0, 0), (-1, -1), LIGHT_BG),
+        ('TOPPADDING',    (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 10),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 10),
+        ('BOX',           (0, 0), (-1, -1), 0.5, ACCENT),
+        ('INNERGRID',     (0, 0), (-1, -1), 0.3, colors.HexColor('#BBDEFB')),
+    ]))
+    story.append(summary_table)
+    story.append(Spacer(1, 5 * mm))
 
-    if not species_list:
-        table_data.append([
-            Paragraph('No species match the selected filters.', cell_normal),
-            '', '', '',
-        ])
-    else:
-        for i, sp in enumerate(species_list):
-            stock    = sp.current_stock
-            prices   = _format_prices(sp.wharf_prices)
-            sci_name = sp.scientific_name or '—'
+    # ── Main table ─────────────────────────────────────────────────────────
+    col_headers = [
+        Paragraph('Common Name',       col_header_style),
+        Paragraph('Scientific Name',   col_header_style),
+        Paragraph('In Stock',          col_header_style),
+        Paragraph('Wharf Sale Prices', col_header_style),
+    ]
 
-            # Stock colour
-            if stock <= 0:
-                stock_color = colors.HexColor('#cf222e')
-            elif stock < 3:
-                stock_color = colors.HexColor('#9a6700')
-            else:
-                stock_color = colors.HexColor('#1a7f37')
+    table_data = [col_headers]
 
-            stock_style = ParagraphStyle(
-                f'Stock{i}',
-                fontSize=9,
-                fontName='Helvetica-Bold',
-                textColor=stock_color,
-                alignment=TA_CENTER,
-                leading=12,
-            )
+    for i, sp in enumerate(species_list):
+        stock = sp.current_stock
+        # Stock colour: green if healthy, amber if low (≤2), red if zero
+        if stock <= 0:
+            stock_colour = colors.HexColor('#C62828')
+        elif stock <= 2:
+            stock_colour = colors.HexColor('#E65100')
+        else:
+            stock_colour = SUCCESS
 
-            table_data.append([
-                Paragraph(sp.common_name, cell_bold),
-                Paragraph(sci_name, cell_italic),
-                Paragraph(str(stock), stock_style),
-                Paragraph(prices, cell_normal),
-            ])
+        stock_style = ParagraphStyle(
+            f'stock_{i}',
+            fontSize  = 9,
+            fontName  = 'Helvetica-Bold',
+            textColor = stock_colour,
+            alignment = TA_CENTER,
+        )
 
-    t = Table(table_data, colWidths=col_widths, repeatRows=1)
+        price_str = _format_wharf_prices(sp)
+
+        row = [
+            Paragraph(sp.common_name or '—',             cell_normal),
+            Paragraph(sp.scientific_name or '—',         cell_italic),
+            Paragraph(str(stock),                         stock_style),
+            Paragraph(price_str,                          cell_price),
+        ]
+        table_data.append(row)
+
+    main_table = Table(table_data, colWidths=COL_W, repeatRows=1)
 
     row_count = len(table_data)
-
     ts = TableStyle([
-        # Header
-        ('BACKGROUND',   (0, 0), (-1, 0), header_bg),
-        ('TEXTCOLOR',    (0, 0), (-1, 0), colors.white),
-        ('ROWBACKGROUNDS', (0, 1), (-1, row_count - 1), [colors.white, row_alt]),
-        # Padding
-        ('TOPPADDING',    (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('LEFTPADDING',   (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING',  (0, 0), (-1, -1), 6),
+        # Header row
+        ('BACKGROUND',    (0, 0), (-1, 0),  ACCENT),
+        ('TOPPADDING',    (0, 0), (-1, 0),  7),
+        ('BOTTOMPADDING', (0, 0), (-1, 0),  7),
+        ('LEFTPADDING',   (0, 0), (-1, 0),  8),
+        ('RIGHTPADDING',  (0, 0), (-1, 0),  8),
+        # Data rows
+        ('TOPPADDING',    (0, 1), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 5),
+        ('LEFTPADDING',   (0, 1), (-1, -1), 8),
+        ('RIGHTPADDING',  (0, 1), (-1, -1), 8),
+        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
         # Grid
-        ('LINEBELOW',  (0, 0), (-1, 0), 0, header_bg),
-        ('LINEBELOW',  (0, 1), (-1, -1), 0.3, colors.HexColor('#d0d7de')),
-        ('VALIGN',     (0, 0), (-1, -1), 'TOP'),
-        # Span empty row if no data
+        ('INNERGRID',     (0, 0), (-1, -1), 0.25, colors.HexColor('#CFD8DC')),
+        ('BOX',           (0, 0), (-1, -1), 0.5,  ACCENT),
+        # Alternate row shading
+        *[
+            ('BACKGROUND', (0, r), (-1, r), ROW_ALT)
+            for r in range(2, row_count, 2)
+        ],
     ])
+    main_table.setStyle(ts)
+    story.append(main_table)
 
-    t.setStyle(ts)
-    story.append(t)
+    story.append(Spacer(1, 8 * mm))
+    story.append(HRFlowable(width='100%', thickness=0.5, color=ACCENT))
+    story.append(Spacer(1, 2 * mm))
 
-    # ── Footer function ───────────────────────────────────────────────────────
-    def _footer(canvas, doc):
+    footer_style = ParagraphStyle(
+        'MAFooter',
+        fontSize  = 7,
+        fontName  = 'Helvetica',
+        textColor = TEXT_MUTED,
+        alignment = TA_CENTER,
+    )
+    story.append(Paragraph(
+        'Mason Aquatics · Fish Room Management System · '
+        'This list is for personal/trade use only.',
+        footer_style
+    ))
+
+    # ── Page template with page numbers ───────────────────────────────────
+    def _on_page(canvas, doc):
         canvas.saveState()
         canvas.setFont('Helvetica', 7)
-        canvas.setFillColor(muted)
-        y = MARGIN - 5 * mm
-
-        # Left: branding
-        canvas.drawString(MARGIN, y, 'Mason Aquatics — Fish Room Management System')
-
-        # Centre: page number
-        page_num = f'Page {doc.page}'
-        canvas.drawCentredString(PAGE_W / 2, y, page_num)
-
-        # Right: date
-        canvas.drawRightString(PAGE_W - MARGIN, y, f'Generated {today_str}')
-
-        # Thin rule above footer
-        canvas.setStrokeColor(colors.HexColor('#d0d7de'))
-        canvas.setLineWidth(0.5)
-        canvas.line(MARGIN, y + 4 * mm, PAGE_W - MARGIN, y + 4 * mm)
+        canvas.setFillColor(TEXT_MUTED)
+        canvas.drawRightString(
+            PAGE_W - MARGIN,
+            10 * mm,
+            f'Page {doc.page}  ·  Mason Aquatics Available Stock List  ·  {today_str}'
+        )
         canvas.restoreState()
 
-    doc.build(story, onFirstPage=_footer, onLaterPages=_footer)
+    doc.build(story, onFirstPage=_on_page, onLaterPages=_on_page)
