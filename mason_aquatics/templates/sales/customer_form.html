@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% set is_edit = customer is not none and customer.id %}
+{% block title %}{{ 'Edit' if is_edit else 'Add' }} Customer — Mason Aquatics{% endblock %}
+
+{% block head %}
+<style>
+  .form-page { max-width: 620px; }
+  .form-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .form-section-title {
+    font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--accent); margin-bottom: 1.1rem;
+    padding-bottom: 0.6rem; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 560px) { .form-row-2 { grid-template-columns: 1fr; } }
+  .form-footer {
+    position: sticky; bottom: 0;
+    background: var(--bg-secondary); border-top: 1px solid var(--border);
+    padding: 0.85rem 1.5rem; display: flex; gap: 0.75rem;
+    justify-content: flex-end; margin: 0 -1.5rem -1.5rem; z-index: 10;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>
+      <i class="fa-solid fa-{{ 'pen' if is_edit else 'user-plus' }}"
+         style="color:var(--accent)"></i>
+      {{ 'Edit Customer' if is_edit else 'Add Customer' }}
+    </h1>
+    <div class="breadcrumb">
+      <a href="{{ url_for('sales.list_sales') }}"
+         style="color:var(--text-muted); text-decoration:none;">Sales</a>
+      &rsaquo;
+      <a href="{{ url_for('sales.list_customers') }}"
+         style="color:var(--text-muted); text-decoration:none;">Customers</a>
+      &rsaquo; {{ customer.name if is_edit else 'New Customer' }}
+    </div>
+  </div>
+  <a href="{{ url_for('sales.list_customers') }}" class="btn btn-secondary">
+    <i class="fa-solid fa-arrow-left"></i> Back
+  </a>
+</div>
+
+<div class="form-page">
+<form method="POST"
+      action="{{ url_for('sales.edit_customer', customer_id=customer.id) if is_edit
+                else url_for('sales.add_customer') }}">
+
+  <!-- ── Contact ────────────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="form-section-title">
+      <i class="fa-solid fa-address-card"></i> Contact Details
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">
+        Name <span style="color:var(--danger)">*</span>
+      </label>
+      <input type="text" name="name" class="form-control" required
+             value="{{ customer.name if is_edit else '' }}"
+             placeholder="Full name or trade name" />
+    </div>
+
+    <div class="form-row-2">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Phone</label>
+        <input type="tel" name="phone" class="form-control"
+               value="{{ customer.phone or '' if is_edit else '' }}"
+               placeholder="e.g. 07700 900000" />
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Email</label>
+        <input type="email" name="email" class="form-control"
+               value="{{ customer.email or '' if is_edit else '' }}"
+               placeholder="e.g. buyer@example.com" />
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Store Credit ───────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="form-section-title">
+      <i class="fa-solid fa-piggy-bank"></i> Store Credit
+    </div>
+
+    <div class="form-group" style="margin-bottom:0">
+      <label class="form-label">Opening Credit Balance (£)</label>
+      <input type="number" name="store_credit_gbp" class="form-control"
+             step="0.01" min="0"
+             value="{{ '%.2f' | format(customer.store_credit_gbp or 0) if is_edit else '0.00' }}"
+             placeholder="0.00"
+             style="max-width:180px;" />
+      <div style="font-size:0.73rem; color:var(--text-muted); margin-top:0.35rem;">
+        {% if is_edit %}
+        Current balance: <strong>£{{ '%.2f' | format(customer.store_credit_gbp or 0) }}</strong>.
+        Editing this field sets a new balance directly — use the
+        <a href="{{ url_for('sales.customer_detail', customer_id=customer.id) }}"
+           style="color:var(--accent)">Add Credit</a> button on the detail page
+        for top-ups.
+        {% else %}
+        Leave at 0.00 unless you are importing an existing credit balance.
+        Credit is normally added through the customer detail page.
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Notes ─────────────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="form-section-title">
+      <i class="fa-solid fa-note-sticky"></i> Notes
+    </div>
+    <div class="form-group" style="margin-bottom:0">
+      <textarea name="notes" class="form-control" rows="3"
+                placeholder="Any notes about this customer — preferred species, collection arrangements, etc.">{{ customer.notes or '' if is_edit else '' }}</textarea>
+    </div>
+  </div>
+
+  <!-- ── Sticky footer ─────────────────────────────────────── -->
+  <div class="form-footer">
+    {% if is_edit %}
+    <form method="POST"
+          action="{{ url_for('sales.delete_customer', customer_id=customer.id) }}"
+          onsubmit="return confirm('Delete {{ customer.name | replace(\"'\", \"\\'\") }}? Their sales will be kept with no customer assigned.')"
+          style="margin-right:auto;">
+      <button type="submit" class="btn btn-danger btn-sm">
+        <i class="fa-solid fa-trash"></i> Delete Customer
+      </button>
+    </form>
+    {% endif %}
+    <a href="{{ url_for('sales.list_customers') }}" class="btn btn-secondary">Cancel</a>
+    <button type="submit" class="btn btn-primary">
+      <i class="fa-solid fa-floppy-disk"></i>
+      {{ 'Save Changes' if is_edit else 'Add Customer' }}
+    </button>
+  </div>
+
+</form>
+</div>
+{% endblock %}
