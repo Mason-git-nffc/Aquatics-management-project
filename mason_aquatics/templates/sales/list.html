@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}Sales — Mason Aquatics{% endblock %}
+
+{% block head %}
+<style>
+  .filter-bar {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.9rem 1.25rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: flex-end;
+  }
+  .filter-group { display: flex; flex-direction: column; gap: 0.3rem; min-width: 120px; }
+  .filter-label { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+  .filter-bar select, .filter-bar input {
+    background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.42rem 0.65rem; color: var(--text-primary); font-size: 0.85rem;
+    outline: none; font-family: inherit;
+  }
+  .filter-bar select:focus, .filter-bar input:focus { border-color: var(--accent); }
+  .empty-state { text-align: center; padding: 4rem 2rem; color: var(--text-muted); }
+  .empty-state i { font-size: 3rem; color: var(--border); margin-bottom: 1rem; display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1><i class="fa-solid fa-sterling-sign" style="color:var(--accent)"></i> Sales</h1>
+    <div class="breadcrumb">Sales Records</div>
+  </div>
+  <div style="display:flex; gap:0.5rem;">
+    <a href="{{ url_for('sales.list_customers') }}" class="btn btn-secondary">
+      <i class="fa-solid fa-users"></i> Customers
+    </a>
+    <a href="{{ url_for('sales.add_sale') }}" class="btn btn-primary">
+      <i class="fa-solid fa-plus"></i> Record Sale
+    </a>
+  </div>
+</div>
+
+<!-- Summary strip -->
+<div class="stat-grid" style="margin-bottom:1.25rem;">
+  <div class="stat-card">
+    <div class="stat-label">Sales Shown</div>
+    <div class="stat-value">{{ sales | length }}</div>
+    <div class="stat-sub">records</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Fish Sold</div>
+    <div class="stat-value">{{ total_fish }}</div>
+    <div class="stat-sub">units</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Revenue</div>
+    <div class="stat-value" style="font-size:1.5rem; color:var(--success);">
+      £{{ '%.2f' | format(total_revenue) }}
+    </div>
+    <div class="stat-sub">in current filter</div>
+  </div>
+</div>
+
+<!-- Filter bar -->
+<form method="GET" action="{{ url_for('sales.list_sales') }}">
+  <div class="filter-bar">
+    <div class="filter-group" style="min-width:175px;">
+      <label class="filter-label">Species</label>
+      <select name="species_id">
+        <option value="">All Species</option>
+        {% for s in all_species %}
+        <option value="{{ s.id }}" {% if f_species == s.id | string %}selected{% endif %}>
+          {{ s.common_name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Customer</label>
+      <select name="customer_id">
+        <option value="">All Customers</option>
+        {% for c in all_customers %}
+        <option value="{{ c.id }}" {% if f_customer == c.id | string %}selected{% endif %}>
+          {{ c.name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Payment</label>
+      <select name="payment_type">
+        <option value="">All Types</option>
+        <option value="Cash"         {% if f_payment == 'Cash'         %}selected{% endif %}>Cash</option>
+        <option value="Store Credit" {% if f_payment == 'Store Credit' %}selected{% endif %}>Store Credit</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">From</label>
+      <input type="text" name="date_from" value="{{ f_from }}"
+             placeholder="DD/MM/YYYY" style="width:110px" />
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">To</label>
+      <input type="text" name="date_to" value="{{ f_to }}"
+             placeholder="DD/MM/YYYY" style="width:110px" />
+    </div>
+    <div style="display:flex; gap:0.5rem; align-self:flex-end;">
+      <button type="submit" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-filter"></i> Filter
+      </button>
+      {% if f_species or f_customer or f_payment or f_from or f_to %}
+      <a href="{{ url_for('sales.list_sales') }}" class="btn btn-secondary btn-sm">
+        <i class="fa-solid fa-xmark"></i> Clear
+      </a>
+      {% endif %}
+    </div>
+  </div>
+</form>
+
+{% if sales %}
+<div class="card" style="padding:0; overflow:hidden;">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Species</th>
+          <th>Customer</th>
+          <th>Qty</th>
+          <th>Price/Fish</th>
+          <th>Total</th>
+          <th>Payment</th>
+          <th>Notes</th>
+          <th style="width:90px">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in sales %}
+        <tr>
+          <td style="white-space:nowrap; font-size:0.82rem; font-variant-numeric:tabular-nums;">
+            {{ s.sale_date_display }}
+          </td>
+          <td>
+            {% if s.species %}
+            <a href="{{ url_for('species.detail', species_id=s.species_id) }}"
+               style="font-weight:600; color:var(--text-heading); text-decoration:none;">
+              {{ s.species.common_name }}
+            </a>
+            {% else %}<span style="color:var(--text-muted)">—</span>{% endif %}
+          </td>
+          <td>
+            {% if s.customer %}
+            <a href="{{ url_for('sales.customer_detail', customer_id=s.customer_id) }}"
+               style="color:var(--accent); text-decoration:none;">{{ s.customer.name }}</a>
+            {% else %}<span style="color:var(--text-muted); font-size:0.82rem;">—</span>{% endif %}
+          </td>
+          <td style="font-variant-numeric:tabular-nums;">{{ s.quantity_sold }}</td>
+          <td style="font-variant-numeric:tabular-nums;">£{{ '%.2f' | format(s.price_per_fish_gbp) }}</td>
+          <td>
+            <strong style="color:var(--success);">£{{ '%.2f' | format(s.total_gbp or 0) }}</strong>
+          </td>
+          <td>
+            <span class="badge {{ 'badge-success' if s.payment_type == 'Cash' else 'badge-info' }}">
+              {{ s.payment_type or '—' }}
+            </span>
+          </td>
+          <td style="font-size:0.8rem; color:var(--text-muted); max-width:180px;">
+            {{ s.notes or '' }}
+          </td>
+          <td>
+            <div style="display:flex; gap:0.35rem;">
+              <a href="{{ url_for('sales.edit_sale', sale_id=s.id) }}"
+                 class="btn btn-secondary btn-sm" title="Edit">
+                <i class="fa-solid fa-pen"></i>
+              </a>
+              <form method="POST"
+                    action="{{ url_for('sales.delete_sale', sale_id=s.id) }}"
+                    onsubmit="return confirm('Delete this sale? Store credit will be refunded if applicable.')">
+                <button type="submit" class="btn btn-danger btn-sm" title="Delete">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <i class="fa-solid fa-sterling-sign"></i>
+    {% if f_species or f_customer or f_payment or f_from or f_to %}
+    <p>No sales match your filters.</p>
+    <a href="{{ url_for('sales.list_sales') }}" class="btn btn-secondary">Clear Filters</a>
+    {% else %}
+    <p>No sales recorded yet.</p>
+    <a href="{{ url_for('sales.add_sale') }}" class="btn btn-primary">
+      <i class="fa-solid fa-plus"></i> Record First Sale
+    </a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
