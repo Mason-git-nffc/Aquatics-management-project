@@ -1,0 +1,370 @@
+{% extends "base.html" %}
+{% set is_edit = species is not none and species.id %}
+{% block title %}{{ 'Edit' if is_edit else 'Add' }} Species — Mason Aquatics{% endblock %}
+
+{% block head %}
+<style>
+  .form-page { max-width: 860px; }
+
+  .form-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .form-section-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    margin-bottom: 1.1rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+
+  @media (max-width: 640px) {
+    .form-row-2, .form-row-3 { grid-template-columns: 1fr; }
+  }
+
+  .price-tier-row {
+    display: grid;
+    grid-template-columns: 80px 130px 1fr 34px;
+    gap: 0.5rem;
+    align-items: flex-end;
+    margin-bottom: 0.5rem;
+  }
+
+  @media (max-width: 600px) {
+    .price-tier-row { grid-template-columns: 1fr 1fr; }
+  }
+
+  .remove-btn {
+    background: var(--danger);
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    padding: 0.38rem 0.55rem;
+    font-size: 0.8rem;
+    line-height: 1;
+    flex-shrink: 0;
+    align-self: flex-end;
+  }
+
+  .form-footer {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    padding: 0.85rem 1.5rem;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    align-items: center;
+    margin: 0 -1.5rem -1.5rem;
+    z-index: 10;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>
+      <i class="fa-solid fa-{{ 'pen' if is_edit else 'plus' }}" style="color:var(--accent)"></i>
+      {{ 'Edit Species' if is_edit else 'Add Species' }}
+    </h1>
+    <div class="breadcrumb">
+      <a href="{{ url_for('species.list_species') }}"
+         style="color:var(--text-muted); text-decoration:none;">Species</a>
+      &rsaquo; {{ species.common_name if is_edit else 'New' }}
+    </div>
+  </div>
+  <a href="{{ url_for('species.list_species') }}" class="btn btn-secondary">
+    <i class="fa-solid fa-arrow-left"></i> Back
+  </a>
+</div>
+
+<div class="form-page">
+<form method="POST"
+      action="{{ url_for('species.edit_species', species_id=species.id) if is_edit
+                else url_for('species.add_species') }}">
+
+  <!-- ── Identity ────────────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="form-section-title"><i class="fa-solid fa-fish"></i> Identity</div>
+
+    <div class="form-row-2" style="margin-bottom:1rem;">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">
+          Common Name <span style="color:var(--danger)">*</span>
+        </label>
+        <input type="text" name="common_name" class="form-control" required
+               value="{{ species.common_name if is_edit else '' }}"
+               placeholder="e.g. Bristlenose Pleco" />
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Scientific Name</label>
+        <input type="text" name="scientific_name" class="form-control"
+               value="{{ species.scientific_name or '' if is_edit else '' }}"
+               placeholder="e.g. Ancistrus cirrhosus" />
+      </div>
+    </div>
+
+    <div class="form-row-2" style="margin-bottom:1rem;">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Native To</label>
+        <input type="text" name="native_to" class="form-control"
+               value="{{ species.native_to or '' if is_edit else '' }}"
+               placeholder="e.g. Amazon Basin, Brazil" />
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Weather / Origin Link</label>
+        <input type="url" name="weather_link" class="form-control"
+               value="{{ species.weather_link or '' if is_edit else '' }}"
+               placeholder="https://www.timeanddate.com/weather/…" />
+      </div>
+    </div>
+
+    <div class="form-row-3">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Tank IDC</label>
+        <select name="tank_idc" class="form-control">
+          <option value="">— Unassigned —</option>
+          {% for t in tank_choices %}
+          <option value="{{ t }}"
+            {% if is_edit and species.tank_idc == t %}selected{% endif %}>
+            {{ t }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Reproduction Type</label>
+        <select name="reproduction_type" class="form-control">
+          <option value="">— Not specified —</option>
+          {% for r in reproduction_choices %}
+          <option value="{{ r }}"
+            {% if is_edit and species.reproduction_type == r %}selected{% endif %}>
+            {{ r }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Ideal pH</label>
+        <input type="number" name="ideal_ph" class="form-control"
+               step="0.1" min="0" max="14"
+               value="{{ species.ideal_ph or '' if is_edit else '' }}"
+               placeholder="e.g. 7.0" />
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Water Parameters ────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="form-section-title">
+      <i class="fa-solid fa-temperature-half"></i> Water Parameters
+    </div>
+    <div class="form-row-2">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Min Temperature (°C)</label>
+        <input type="number" name="min_temp_c" class="form-control"
+               step="0.5" min="0" max="50"
+               value="{{ species.min_temp_c or '' if is_edit else '' }}"
+               placeholder="e.g. 22" />
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Max Temperature (°C)</label>
+        <input type="number" name="max_temp_c" class="form-control"
+               step="0.5" min="0" max="50"
+               value="{{ species.max_temp_c or '' if is_edit else '' }}"
+               placeholder="e.g. 28" />
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Acquisition ──────────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="form-section-title">
+      <i class="fa-solid fa-cart-shopping"></i> Acquisition
+    </div>
+
+    <div class="form-row-3" style="margin-bottom:1rem;">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Purchased From</label>
+        <select name="purchased_from" class="form-control" id="purchasedFrom"
+                onchange="toggleOtherNotes()">
+          <option value="">— Not specified —</option>
+          {% for pf in purchased_from_choices %}
+          <option value="{{ pf }}"
+            {% if is_edit and species.purchased_from == pf %}selected{% endif %}>
+            {{ pf }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Date Purchased</label>
+        <input type="text" name="date_purchased" class="form-control"
+               placeholder="DD/MM/YYYY"
+               value="{{ species.date_purchased_display or '' if is_edit else '' }}" />
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Quantity Bought</label>
+        <input type="number" name="quantity_bought" class="form-control"
+               step="1" min="0"
+               value="{{ species.quantity_bought or '' if is_edit else '' }}"
+               placeholder="e.g. 10" />
+      </div>
+    </div>
+
+    <div class="form-row-2">
+      <div class="form-group" style="margin-bottom:0" id="otherNotesWrap"
+           style="display:{{ 'block' if is_edit and species.purchased_from == 'Other' else 'none' }}">
+        <label class="form-label">Supplier Details (Other)</label>
+        <input type="text" name="purchased_from_notes" class="form-control"
+               value="{{ species.purchased_from_notes or '' if is_edit else '' }}"
+               placeholder="Describe source…" />
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Price Paid Per Fish (£)</label>
+        <input type="number" name="price_per_fish_gbp" class="form-control"
+               step="0.01" min="0"
+               value="{{ species.price_per_fish_gbp or '' if is_edit else '' }}"
+               placeholder="e.g. 3.50" />
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Wharf Prices ──────────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="form-section-title">
+      <i class="fa-solid fa-sterling-sign"></i> Wharf Sale Prices
+      <span style="font-size:0.75rem; color:var(--text-muted); font-weight:400;
+                   text-transform:none; letter-spacing:0; margin-left:0.5rem;">
+        Tiered pricing, e.g. 1 for £3.00 | 6 for £15.00
+      </span>
+    </div>
+
+    <div id="priceTiers">
+      {% if is_edit and species.wharf_prices %}
+        {% for wp in species.wharf_prices | sort(attribute='quantity') %}
+        <div class="price-tier-row">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Qty</label>
+            <input type="number" name="wp_quantity" class="form-control"
+                   value="{{ wp.quantity }}" min="1" step="1" placeholder="1" />
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Price (£)</label>
+            <input type="number" name="wp_price" class="form-control"
+                   value="{{ wp.price_gbp }}" min="0" step="0.01" placeholder="0.00" />
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Notes</label>
+            <input type="text" name="wp_notes" class="form-control"
+                   value="{{ wp.notes or '' }}" placeholder="Optional…" />
+          </div>
+          <button type="button" class="remove-btn"
+                  onclick="this.closest('.price-tier-row').remove()">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="price-tier-row" id="defaultTier">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Qty</label>
+            <input type="number" name="wp_quantity" class="form-control"
+                   min="1" step="1" placeholder="1" />
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Price (£)</label>
+            <input type="number" name="wp_price" class="form-control"
+                   min="0" step="0.01" placeholder="0.00" />
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Notes</label>
+            <input type="text" name="wp_notes" class="form-control" placeholder="Optional…" />
+          </div>
+          <button type="button" class="remove-btn"
+                  onclick="this.closest('.price-tier-row').remove()">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      {% endif %}
+    </div>
+
+    <button type="button" class="btn btn-secondary btn-sm" style="margin-top:0.6rem;"
+            onclick="addTier()">
+      <i class="fa-solid fa-plus"></i> Add Tier
+    </button>
+  </div>
+
+  <!-- ── Sticky footer ────────────────────────────────────────── -->
+  <div class="form-footer">
+    {% if is_edit %}
+    <form method="POST"
+          action="{{ url_for('species.delete_species', species_id=species.id) }}"
+          onsubmit="return confirm('Delete {{ species.common_name | replace(\"'\", \"\\'\") }}? This cannot be undone.')"
+          style="margin-right:auto;">
+      <button type="submit" class="btn btn-danger btn-sm">
+        <i class="fa-solid fa-trash"></i> Delete Species
+      </button>
+    </form>
+    {% endif %}
+    <a href="{{ url_for('species.list_species') }}" class="btn btn-secondary">Cancel</a>
+    <button type="submit" class="btn btn-primary">
+      <i class="fa-solid fa-floppy-disk"></i>
+      {{ 'Save Changes' if is_edit else 'Add Species' }}
+    </button>
+  </div>
+
+</form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function addTier() {
+    const container = document.getElementById('priceTiers');
+    const row = document.createElement('div');
+    row.className = 'price-tier-row';
+    row.innerHTML = `
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Qty</label>
+        <input type="number" name="wp_quantity" class="form-control" min="1" step="1" placeholder="1" />
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Price (&pound;)</label>
+        <input type="number" name="wp_price" class="form-control" min="0" step="0.01" placeholder="0.00" />
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Notes</label>
+        <input type="text" name="wp_notes" class="form-control" placeholder="Optional&hellip;" />
+      </div>
+      <button type="button" class="remove-btn" onclick="this.closest('.price-tier-row').remove()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>`;
+    container.appendChild(row);
+  }
+
+  function toggleOtherNotes() {
+    const val  = document.getElementById('purchasedFrom').value;
+    const wrap = document.getElementById('otherNotesWrap');
+    if (wrap) wrap.style.display = (val === 'Other') ? 'block' : 'none';
+  }
+
+  toggleOtherNotes();
+</script>
+{% endblock %}
