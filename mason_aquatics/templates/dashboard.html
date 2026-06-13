@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Mason Aquatics{% endblock %}
+
+{% block head %}
+<style>
+  .dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .ds-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.1rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ds-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+    border-radius: 8px 8px 0 0;
+  }
+
+  .ds-card.green::after { background: var(--success); }
+  .ds-card.amber::after { background: var(--warning); }
+
+  .ds-label { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); margin-bottom: 0.3rem; }
+  .ds-value { font-size: 2rem; font-weight: 700; color: var(--accent); line-height: 1; }
+  .ds-card.green .ds-value { color: var(--success); }
+  .ds-card.amber .ds-value { color: var(--warning); }
+  .ds-sub   { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  @media (max-width: 800px) { .two-col { grid-template-columns: 1fr; } }
+
+  .quick-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.875rem;
+  }
+
+  .quick-row:last-child { border-bottom: none; }
+
+  .welcome-banner {
+    background: linear-gradient(135deg, rgba(33,150,243,0.1), rgba(33,150,243,0.03));
+    border: 1px solid rgba(33,150,243,0.2);
+    border-radius: 8px;
+    padding: 1.1rem 1.5rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Welcome strip -->
+<div class="welcome-banner">
+  <i class="fa-solid fa-fish" style="color:var(--accent); font-size:1.75rem; flex-shrink:0;"></i>
+  <div>
+    <div style="font-size:1.1rem; font-weight:700; color:var(--text-heading);">Mason Aquatics — Fish Room</div>
+    <div style="font-size:0.82rem; color:var(--text-muted);">{{ today }}</div>
+  </div>
+  <div style="margin-left:auto; display:flex; gap:0.5rem; flex-wrap:wrap;">
+    <a href="{{ url_for('species.add_species') }}" class="btn btn-primary btn-sm">
+      <i class="fa-solid fa-plus"></i> Add Species
+    </a>
+    <a href="{{ url_for('breeding.add_record') }}" class="btn btn-secondary btn-sm">
+      <i class="fa-solid fa-egg"></i> Breeding Record
+    </a>
+    <a href="{{ url_for('sales.add_sale') }}" class="btn btn-secondary btn-sm">
+      <i class="fa-solid fa-sterling-sign"></i> Record Sale
+    </a>
+  </div>
+</div>
+
+<!-- Stats strip -->
+<div class="dashboard-stats">
+  <div class="ds-card">
+    <div class="ds-label"><i class="fa-solid fa-fish-fins"></i> Species</div>
+    <div class="ds-value">{{ total_species }}</div>
+    <div class="ds-sub">types in fish room</div>
+  </div>
+  <div class="ds-card green">
+    <div class="ds-label"><i class="fa-solid fa-fish"></i> Total Stock</div>
+    <div class="ds-value">{{ total_stock }}</div>
+    <div class="ds-sub">fish in inventory</div>
+  </div>
+  <div class="ds-card">
+    <div class="ds-label"><i class="fa-solid fa-water"></i> Tanks in Use</div>
+    <div class="ds-value">{{ tanks_in_use }}</div>
+    <div class="ds-sub">of {{ total_tanks }} total</div>
+  </div>
+  <div class="ds-card amber">
+    <div class="ds-label"><i class="fa-solid fa-bowl-rice"></i> Feed Cost</div>
+    <div class="ds-value" style="font-size:1.5rem;">£{{ '%.2f' | format(feed_this_month) }}</div>
+    <div class="ds-sub">this month</div>
+  </div>
+</div>
+
+<!-- Recent activity -->
+<div class="two-col">
+
+  <!-- Recent Sales -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="fa-solid fa-sterling-sign"></i> Recent Sales</span>
+      <a href="{{ url_for('sales.list_sales') }}" class="btn btn-secondary btn-sm">View All</a>
+    </div>
+    {% if recent_sales %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Date</th><th>Species</th><th>Qty</th><th>Total</th></tr>
+        </thead>
+        <tbody>
+          {% for s in recent_sales %}
+          <tr>
+            <td style="white-space:nowrap; font-size:0.82rem;">{{ s.sale_date_display }}</td>
+            <td>
+              {% if s.species %}
+              <a href="{{ url_for('species.detail', species_id=s.species_id) }}"
+                 style="font-weight:600; color:var(--text-heading); text-decoration:none;">
+                {{ s.species.common_name }}
+              </a>
+              {% else %}—{% endif %}
+            </td>
+            <td>{{ s.quantity_sold }}</td>
+            <td style="font-weight:600; color:var(--success);">
+              £{{ '%.2f' | format(s.total_gbp or 0) }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p style="color:var(--text-muted); font-size:0.875rem;">No sales recorded yet.</p>
+    {% endif %}
+  </div>
+
+  <!-- Recent Breeding -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="fa-solid fa-egg"></i> Recent Breeding</span>
+      <a href="{{ url_for('breeding.list_breeding') }}" class="btn btn-secondary btn-sm">View All</a>
+    </div>
+    {% if recent_breeding %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Date</th><th>Species</th><th>Hatched</th><th>Rate</th></tr>
+        </thead>
+        <tbody>
+          {% for r in recent_breeding %}
+          <tr>
+            <td style="white-space:nowrap; font-size:0.82rem;">{{ r.record_date_display }}</td>
+            <td>
+              <a href="{{ url_for('species.detail', species_id=r.species_id) }}"
+                 style="font-weight:600; color:var(--text-heading); text-decoration:none;">
+                {{ r.species.common_name }}
+              </a>
+            </td>
+            <td>{{ r.eggs_hatched if r.eggs_hatched is not none else '—' }}</td>
+            <td>
+              {% if r.hatch_rate is not none %}
+              <span class="badge
+                {% if r.hatch_rate >= 70 %}badge-success
+                {% elif r.hatch_rate >= 40 %}badge-warning
+                {% else %}badge-danger{% endif %}">
+                {{ r.hatch_rate }}%
+              </span>
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p style="color:var(--text-muted); font-size:0.875rem;">No breeding records yet.</p>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Low stock alert -->
+{% if low_stock %}
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">
+      <i class="fa-solid fa-triangle-exclamation" style="color:var(--warning)"></i>
+      Low Stock Alert
+    </span>
+    <a href="{{ url_for('species.list_species') }}" class="btn btn-secondary btn-sm">All Species</a>
+  </div>
+  {% for s in low_stock %}
+  <div class="quick-row">
+    <a href="{{ url_for('species.detail', species_id=s.id) }}"
+       style="font-weight:600; color:var(--text-heading); text-decoration:none;">
+      {{ s.common_name }}
+      {% if s.scientific_name %}
+      <span style="font-style:italic; font-size:0.78rem; color:var(--text-muted); font-weight:400;">
+        — {{ s.scientific_name }}
+      </span>
+      {% endif %}
+    </a>
+    <span class="badge {{ 'badge-danger' if s.current_stock <= 0 else 'badge-warning' }}">
+      {{ s.current_stock }} left
+    </span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}
