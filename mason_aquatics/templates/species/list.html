@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+{% block title %}Species — Mason Aquatics{% endblock %}
+
+{% block head %}
+<style>
+  .species-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(255px, 1fr));
+    gap: 0.875rem;
+  }
+
+  .species-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: border-color 0.15s;
+  }
+
+  .species-card:hover { border-color: var(--accent); }
+
+  .species-card-photo {
+    height: 145px;
+    overflow: hidden;
+    background: var(--bg-input);
+  }
+
+  .species-card-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.25s;
+  }
+
+  .species-card:hover .species-card-photo img { transform: scale(1.05); }
+
+  .species-card-photo-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--border);
+    font-size: 2.5rem;
+  }
+
+  .species-card-body { padding: 0.85rem 1rem; flex: 1; }
+
+  .species-card-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-heading);
+    margin-bottom: 0.15rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .species-card-sci {
+    font-size: 0.75rem;
+    font-style: italic;
+    color: var(--text-muted);
+    margin-bottom: 0.6rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .species-card-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+
+  .chip {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.15rem 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .species-card-footer {
+    padding: 0.65rem 1rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* Filter bar */
+  .filter-bar {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.9rem 1.25rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: flex-end;
+  }
+
+  .filter-group { display: flex; flex-direction: column; gap: 0.3rem; }
+  .filter-label { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+
+  .filter-bar input[type="search"],
+  .filter-bar select {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.42rem 0.65rem;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    outline: none;
+    font-family: inherit;
+  }
+
+  .filter-bar input:focus,
+  .filter-bar select:focus { border-color: var(--accent); }
+
+  .empty-state { text-align: center; padding: 5rem 2rem; color: var(--text-muted); }
+  .empty-state i { font-size: 3rem; color: var(--border); margin-bottom: 1rem; display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1><i class="fa-solid fa-fish-fins" style="color:var(--accent)"></i> Species</h1>
+    <div class="breadcrumb">{{ total_species }} species · {{ total_stock }} fish in stock</div>
+  </div>
+  <a href="{{ url_for('species.add_species') }}" class="btn btn-primary">
+    <i class="fa-solid fa-plus"></i> Add Species
+  </a>
+</div>
+
+<!-- Filter bar -->
+<form method="GET" action="{{ url_for('species.list_species') }}">
+  <div class="filter-bar">
+    <div class="filter-group" style="flex:1; min-width:180px;">
+      <label class="filter-label">Search</label>
+      <input type="search" name="q" value="{{ search }}"
+             placeholder="Common or scientific name…" style="min-width:200px;" />
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Tank</label>
+      <select name="tank_idc">
+        <option value="">All Tanks</option>
+        {% for t in tank_choices %}
+        <option value="{{ t }}" {% if f_tank == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Reproduction</label>
+      <select name="reproduction_type">
+        <option value="">All Types</option>
+        {% for r in reproduction_choices %}
+        <option value="{{ r }}" {% if f_repro == r %}selected{% endif %}>{{ r }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Sort</label>
+      <select name="sort">
+        <option value="name" {% if sort_by == 'name' %}selected{% endif %}>Name A–Z</option>
+        <option value="tank" {% if sort_by == 'tank' %}selected{% endif %}>By Tank</option>
+      </select>
+    </div>
+    <div style="display:flex; gap:0.5rem; align-self:flex-end;">
+      <button type="submit" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-filter"></i> Filter
+      </button>
+      {% if search or f_tank or f_repro %}
+      <a href="{{ url_for('species.list_species') }}" class="btn btn-secondary btn-sm">
+        <i class="fa-solid fa-xmark"></i> Clear
+      </a>
+      {% endif %}
+    </div>
+  </div>
+</form>
+
+{% if species_list %}
+<div class="species-grid">
+  {% for s in species_list %}
+  <div class="species-card">
+
+    <!-- Photo -->
+    <div class="species-card-photo">
+      {% if s.display_photo %}
+      <img src="{{ url_for('static', filename='uploads/photos/' ~ s.display_photo) }}"
+           alt="{{ s.common_name }}" />
+      {% else %}
+      <div class="species-card-photo-placeholder">
+        <i class="fa-solid fa-fish"></i>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Body -->
+    <div class="species-card-body">
+      <div class="species-card-name">{{ s.common_name }}</div>
+      <div class="species-card-sci">{{ s.scientific_name or '—' }}</div>
+      <div class="species-card-chips">
+        {% if s.tank_idc %}
+        <span class="chip">
+          <i class="fa-solid fa-water" style="color:var(--accent)"></i> {{ s.tank_idc }}
+        </span>
+        {% endif %}
+        {% if s.min_temp_c or s.max_temp_c %}
+        <span class="chip">
+          <i class="fa-solid fa-temperature-half"></i>
+          {{ s.min_temp_c | int if s.min_temp_c else '?' }}°–{{ s.max_temp_c | int if s.max_temp_c else '?' }}°C
+        </span>
+        {% endif %}
+        {% if s.ideal_ph %}
+        <span class="chip">
+          <i class="fa-solid fa-flask"></i> pH {{ s.ideal_ph }}
+        </span>
+        {% endif %}
+        {% if s.reproduction_type %}
+        <span class="chip">
+          <i class="fa-solid fa-egg"></i> {{ s.reproduction_type }}
+        </span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="species-card-footer">
+      {% set stock = s.current_stock %}
+      <span class="badge
+        {% if stock <= 0 %}badge-danger
+        {% elif stock < 3 %}badge-warning
+        {% else %}badge-success{% endif %}">
+        {{ stock }} in stock
+      </span>
+      <a href="{{ url_for('species.detail', species_id=s.id) }}"
+         class="btn btn-secondary btn-sm">
+        View <i class="fa-solid fa-arrow-right"></i>
+      </a>
+    </div>
+
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <i class="fa-solid fa-fish-fins"></i>
+    {% if search or f_tank or f_repro %}
+    <p>No species match your filters.</p>
+    <a href="{{ url_for('species.list_species') }}" class="btn btn-secondary">Clear Filters</a>
+    {% else %}
+    <p>No species added yet.</p>
+    <a href="{{ url_for('species.add_species') }}" class="btn btn-primary">
+      <i class="fa-solid fa-plus"></i> Add First Species
+    </a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
