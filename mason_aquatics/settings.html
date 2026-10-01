@@ -1,0 +1,717 @@
+{% extends "base.html" %}
+{% block title %}Settings — Mason Aquatics{% endblock %}
+
+{% block head %}
+<style>
+  .settings-layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  @media (max-width: 800px) {
+    .settings-layout { grid-template-columns: 1fr; }
+  }
+
+  /* ── Side nav ──────────────────────────────────────────────────── */
+  .settings-nav {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    position: sticky;
+    top: 1rem;
+  }
+
+  .settings-nav-title {
+    padding: 0.85rem 1rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-input);
+  }
+
+  .settings-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.7rem 1rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.875rem;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+  }
+
+  .settings-nav-link:last-child { border-bottom: none; }
+  .settings-nav-link:hover,
+  .settings-nav-link.active {
+    background: var(--bg-input);
+    color: var(--text-primary);
+  }
+  .settings-nav-link.active { color: var(--accent); border-left: 3px solid var(--accent); }
+
+  /* ── Section cards ─────────────────────────────────────────────── */
+  .settings-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 1.25rem;
+    scroll-margin-top: 1rem;
+  }
+
+  .settings-section-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+  }
+
+  .settings-section-title {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text-heading);
+  }
+
+  .settings-section-sub {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 0.15rem;
+  }
+
+  .settings-section-body {
+    padding: 1.25rem;
+  }
+
+  /* ── Theme radio buttons ───────────────────────────────────────── */
+  .theme-options {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .theme-option {
+    flex: 1;
+    min-width: 160px;
+    max-width: 220px;
+    cursor: pointer;
+  }
+
+  .theme-option input[type="radio"] {
+    display: none;
+  }
+
+  .theme-preview-card {
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .theme-option input[type="radio"]:checked + .theme-preview-card {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(33,150,243,0.2);
+  }
+
+  .theme-option:hover .theme-preview-card {
+    border-color: var(--accent);
+  }
+
+  /* Dark preview */
+  .theme-preview-dark {
+    background: #0d1117;
+    padding: 0.75rem;
+    height: 90px;
+  }
+
+  .theme-preview-dark .tp-sidebar {
+    width: 40px;
+    height: 100%;
+    background: #161b22;
+    border-radius: 4px;
+    display: inline-block;
+    vertical-align: top;
+  }
+
+  .theme-preview-dark .tp-content {
+    display: inline-block;
+    vertical-align: top;
+    padding-left: 8px;
+    flex: 1;
+  }
+
+  .theme-preview-dark .tp-bar {
+    height: 8px;
+    background: #21262d;
+    border-radius: 2px;
+    margin-bottom: 5px;
+  }
+
+  .theme-preview-dark .tp-bar.accent { background: #2196F3; width: 60%; }
+
+  /* Light preview */
+  .theme-preview-light {
+    background: #f4f6f8;
+    padding: 0.75rem;
+    height: 90px;
+  }
+
+  .theme-preview-light .tp-sidebar {
+    width: 40px;
+    height: 100%;
+    background: #ffffff;
+    border-radius: 4px;
+    display: inline-block;
+    vertical-align: top;
+    border: 1px solid #d0d7de;
+  }
+
+  .theme-preview-light .tp-content {
+    display: inline-block;
+    vertical-align: top;
+    padding-left: 8px;
+  }
+
+  .theme-preview-light .tp-bar {
+    height: 8px;
+    background: #d0d7de;
+    border-radius: 2px;
+    margin-bottom: 5px;
+  }
+
+  .theme-preview-light .tp-bar.accent { background: #2196F3; width: 60%; }
+
+  .theme-label {
+    text-align: center;
+    padding: 0.6rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    background: var(--bg-input);
+  }
+
+  /* ── Colour swatches ───────────────────────────────────────────── */
+  .colour-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .colour-swatch {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform 0.12s, border-color 0.12s;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .colour-swatch:hover { transform: scale(1.12); }
+
+  .colour-swatch.selected {
+    border-color: var(--text-primary);
+    box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 4px var(--text-primary);
+  }
+
+  .colour-swatch .swatch-check {
+    display: none;
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 0.8rem;
+  }
+
+  .colour-swatch.selected .swatch-check { display: flex; }
+
+  .colour-picker-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+  }
+
+  .colour-picker-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  input[type="color"] {
+    width: 36px;
+    height: 36px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    background: none;
+    padding: 1px;
+  }
+
+  input[type="color"]:focus { border-color: var(--accent); outline: none; }
+
+  .accent-hex-display {
+    font-size: 0.82rem;
+    font-family: monospace;
+    color: var(--text-muted);
+    min-width: 70px;
+  }
+
+  /* ── Font size buttons ─────────────────────────────────────────── */
+  .font-size-options {
+    display: flex;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+  }
+
+  .font-size-btn {
+    cursor: pointer;
+    background: var(--bg-input);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 0.65rem 1.25rem;
+    color: var(--text-primary);
+    transition: border-color 0.15s, background 0.15s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    min-width: 80px;
+  }
+
+  .font-size-btn:hover {
+    border-color: var(--accent);
+    background: var(--bg-card);
+  }
+
+  .font-size-btn.selected {
+    border-color: var(--accent);
+    background: rgba(33,150,243,0.08);
+  }
+
+  .font-size-btn .fsb-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+
+  .font-size-btn .fsb-sample {
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  /* ── Preview strip ─────────────────────────────────────────────── */
+  .preview-strip {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-top: 1rem;
+    display: flex;
+    gap: 1.25rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .preview-strip-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+  }
+
+  .preview-chip {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.4rem 0.85rem;
+    font-size: 0.82rem;
+  }
+
+  /* ── Save bar ──────────────────────────────────────────────────── */
+  .settings-save-bar {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    padding: 0.85rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    z-index: 10;
+    margin: 0 -1.5rem -1.5rem;
+  }
+
+  .save-bar-hint {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1><i class="fa-solid fa-gear" style="color:var(--accent)"></i> Settings</h1>
+    <div class="breadcrumb">Appearance &amp; Preferences</div>
+  </div>
+</div>
+
+<form method="POST" action="{{ url_for('main.save_settings') }}" id="settingsForm">
+
+  <div class="settings-layout">
+
+    <!-- ── Side nav ──────────────────────────────────────────── -->
+    <div class="settings-nav">
+      <div class="settings-nav-title"><i class="fa-solid fa-sliders"></i> Sections</div>
+      <a href="#section-theme"  class="settings-nav-link active">
+        <i class="fa-solid fa-circle-half-stroke"></i> Theme
+      </a>
+      <a href="#section-colour" class="settings-nav-link">
+        <i class="fa-solid fa-palette"></i> Accent Colour
+      </a>
+      <a href="#section-font"   class="settings-nav-link">
+        <i class="fa-solid fa-text-height"></i> Font Size
+      </a>
+    </div>
+
+    <!-- ── Main content ──────────────────────────────────────── -->
+    <div>
+
+      <!-- ── Theme ───────────────────────────────────────────── -->
+      <div class="settings-section" id="section-theme">
+        <div class="settings-section-header">
+          <i class="fa-solid fa-circle-half-stroke" style="color:var(--accent)"></i>
+          <div>
+            <div class="settings-section-title">Theme</div>
+            <div class="settings-section-sub">Choose dark or light interface style</div>
+          </div>
+        </div>
+        <div class="settings-section-body">
+          <div class="theme-options">
+
+            <!-- Dark -->
+            <label class="theme-option">
+              <input type="radio" name="theme" value="dark"
+                     id="theme-dark"
+                     {% if not settings or settings.theme != 'light' %}checked{% endif %}
+                     onchange="applyThemePreview('dark')" />
+              <div class="theme-preview-card">
+                <div class="theme-preview-dark">
+                  <div class="tp-sidebar"></div>
+                  <div class="tp-content">
+                    <div class="tp-bar accent"></div>
+                    <div class="tp-bar" style="width:80%"></div>
+                    <div class="tp-bar" style="width:55%"></div>
+                    <div class="tp-bar" style="width:70%"></div>
+                  </div>
+                </div>
+                <div class="theme-label">
+                  <i class="fa-solid fa-moon"></i> Dark
+                </div>
+              </div>
+            </label>
+
+            <!-- Light -->
+            <label class="theme-option">
+              <input type="radio" name="theme" value="light"
+                     id="theme-light"
+                     {% if settings and settings.theme == 'light' %}checked{% endif %}
+                     onchange="applyThemePreview('light')" />
+              <div class="theme-preview-card">
+                <div class="theme-preview-light">
+                  <div class="tp-sidebar"></div>
+                  <div class="tp-content">
+                    <div class="tp-bar accent"></div>
+                    <div class="tp-bar" style="width:80%"></div>
+                    <div class="tp-bar" style="width:55%"></div>
+                    <div class="tp-bar" style="width:70%"></div>
+                  </div>
+                </div>
+                <div class="theme-label">
+                  <i class="fa-solid fa-sun"></i> Light
+                </div>
+              </div>
+            </label>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Accent Colour ────────────────────────────────────── -->
+      <div class="settings-section" id="section-colour">
+        <div class="settings-section-header">
+          <i class="fa-solid fa-palette" style="color:var(--accent)"></i>
+          <div>
+            <div class="settings-section-title">Accent Colour</div>
+            <div class="settings-section-sub">
+              Choose a preset or pick a custom colour — changes preview live
+            </div>
+          </div>
+        </div>
+        <div class="settings-section-body">
+
+          <!-- Preset swatches -->
+          <div style="font-size:0.75rem; font-weight:600; text-transform:uppercase;
+                      letter-spacing:0.07em; color:var(--text-muted); margin-bottom:0.65rem;">
+            Preset Colours
+          </div>
+          <div class="colour-row" id="swatchRow">
+            {% set presets = [
+              ('#2196F3', 'Blue'),
+              ('#10b981', 'Emerald'),
+              ('#a855f7', 'Purple'),
+              ('#f59e0b', 'Amber'),
+              ('#ef4444', 'Red'),
+              ('#ec4899', 'Pink'),
+              ('#14b8a6', 'Teal'),
+              ('#6366f1', 'Indigo'),
+            ] %}
+            {% set current_accent = settings.accent_colour if settings and settings.accent_colour else '#2196F3' %}
+            {% for hex, name in presets %}
+            <div class="colour-swatch {% if current_accent.lower() == hex.lower() %}selected{% endif %}"
+                 style="background: {{ hex }};"
+                 title="{{ name }} ({{ hex }})"
+                 data-colour="{{ hex }}"
+                 onclick="selectSwatch('{{ hex }}', this)">
+              <div class="swatch-check"><i class="fa-solid fa-check"></i></div>
+            </div>
+            {% endfor %}
+          </div>
+
+          <!-- Custom picker -->
+          <div style="font-size:0.75rem; font-weight:600; text-transform:uppercase;
+                      letter-spacing:0.07em; color:var(--text-muted); margin-bottom:0.65rem;
+                      margin-top:0.75rem;">
+            Custom Colour
+          </div>
+          <div class="colour-picker-wrap">
+            <input type="color"
+                   id="colourPicker"
+                   value="{{ settings.accent_colour if settings and settings.accent_colour else '#2196F3' }}"
+                   oninput="onPickerChange(this.value)"
+                   title="Pick a custom colour" />
+            <span class="colour-picker-label">or pick any colour</span>
+            <span class="accent-hex-display" id="accentHexDisplay">
+              {{ settings.accent_colour if settings and settings.accent_colour else '#2196F3' }}
+            </span>
+          </div>
+
+          <!-- Hidden input carries the chosen value -->
+          <input type="hidden" name="accent_colour" id="accentInput"
+                 value="{{ settings.accent_colour if settings and settings.accent_colour else '#2196F3' }}" />
+
+          <!-- Live preview strip -->
+          <div class="preview-strip">
+            <span class="preview-strip-label">Preview</span>
+            <span class="preview-chip">
+              <i class="fa-solid fa-fish" style="color:var(--accent); margin-right:0.35rem;"></i>
+              Accent text
+            </span>
+            <span class="btn btn-primary btn-sm" style="pointer-events:none; user-select:none;">
+              Sample Button
+            </span>
+            <span class="badge badge-info" style="pointer-events:none;">Badge</span>
+            <span class="nav-item active" style="pointer-events:none; border-radius:4px;
+              font-size:0.8rem; padding:0.3rem 0.65rem;">Nav Item</span>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── Font Size ─────────────────────────────────────────── -->
+      <div class="settings-section" id="section-font">
+        <div class="settings-section-header">
+          <i class="fa-solid fa-text-height" style="color:var(--accent)"></i>
+          <div>
+            <div class="settings-section-title">Font Size</div>
+            <div class="settings-section-sub">
+              Adjust the base text size — previews live on the page
+            </div>
+          </div>
+        </div>
+        <div class="settings-section-body">
+
+          {% set current_fs = settings.font_size if settings and settings.font_size else 'md' %}
+          <div class="font-size-options">
+
+            <button type="button"
+                    class="font-size-btn {% if current_fs == 'sm' %}selected{% endif %}"
+                    onclick="selectFontSize('sm', this)">
+              <span class="fsb-sample" style="font-size:12px;">Aa</span>
+              <span class="fsb-label">Small</span>
+            </button>
+
+            <button type="button"
+                    class="font-size-btn {% if current_fs == 'md' %}selected{% endif %}"
+                    onclick="selectFontSize('md', this)">
+              <span class="fsb-sample" style="font-size:15px;">Aa</span>
+              <span class="fsb-label">Medium</span>
+            </button>
+
+            <button type="button"
+                    class="font-size-btn {% if current_fs == 'lg' %}selected{% endif %}"
+                    onclick="selectFontSize('lg', this)">
+              <span class="fsb-sample" style="font-size:18px;">Aa</span>
+              <span class="fsb-label">Large</span>
+            </button>
+
+            <button type="button"
+                    class="font-size-btn {% if current_fs == 'xl' %}selected{% endif %}"
+                    onclick="selectFontSize('xl', this)">
+              <span class="fsb-sample" style="font-size:22px;">Aa</span>
+              <span class="fsb-label">XL</span>
+            </button>
+
+          </div>
+
+          <!-- Hidden input carries chosen value -->
+          <input type="hidden" name="font_size" id="fontSizeInput" value="{{ current_fs }}" />
+
+          <!-- Sample text preview -->
+          <div class="preview-strip" style="margin-top:1rem; flex-direction:column; align-items:flex-start; gap:0.5rem;">
+            <span class="preview-strip-label">Text Preview</span>
+            <div>
+              <div style="font-size:1.1em; font-weight:700; color:var(--text-heading); margin-bottom:0.2rem;"
+                   id="previewHeading">Mason Aquatics Fish Room System</div>
+              <div style="font-size:0.9em; color:var(--text-muted);"
+                   id="previewBody">
+                Common Pleco · <em>Hypostomus plecostomus</em> · 24°C–28°C · pH 6.5–7.5
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── Save bar (sticky) ──────────────────────────────── -->
+      <div class="settings-save-bar">
+        <div class="save-bar-hint">
+          <i class="fa-solid fa-circle-info" style="color:var(--accent)"></i>
+          Changes preview live — click Save to apply permanently
+        </div>
+        <div style="display:flex; gap:0.75rem; align-items:center;">
+          <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-xmark"></i> Cancel
+          </a>
+          <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-floppy-disk"></i> Save Settings
+          </button>
+        </div>
+      </div>
+
+    </div><!-- main col -->
+  </div><!-- grid -->
+
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // ── Font size map ────────────────────────────────────────────────
+  const fontSizeMap = { sm: '13px', md: '15px', lg: '17px', xl: '20px' };
+
+  // ── Theme preview ────────────────────────────────────────────────
+  function applyThemePreview(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('ma_theme', theme);
+    // Immediately update the quick-toggle topbar button state
+    fetch('/settings/theme', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ theme })
+    });
+  }
+
+  // ── Colour swatches ──────────────────────────────────────────────
+  function selectSwatch(hex, el) {
+    // Deselect all swatches
+    document.querySelectorAll('.colour-swatch').forEach(s => s.classList.remove('selected'));
+    el.classList.add('selected');
+
+    // Sync picker
+    document.getElementById('colourPicker').value = hex;
+
+    // Apply live
+    applyAccentColour(hex);
+  }
+
+  function onPickerChange(hex) {
+    // Deselect all swatches — custom colour chosen
+    document.querySelectorAll('.colour-swatch').forEach(s => s.classList.remove('selected'));
+    applyAccentColour(hex);
+  }
+
+  function applyAccentColour(hex) {
+    document.documentElement.style.setProperty('--accent', hex);
+    document.getElementById('accentInput').value = hex;
+    document.getElementById('accentHexDisplay').textContent = hex.toUpperCase();
+  }
+
+  // ── Font size ────────────────────────────────────────────────────
+  function selectFontSize(size, btn) {
+    // Deselect all
+    document.querySelectorAll('.font-size-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+
+    // Store in hidden input
+    document.getElementById('fontSizeInput').value = size;
+
+    // Apply live
+    document.documentElement.style.fontSize = fontSizeMap[size] || '15px';
+  }
+
+  // ── Init — apply current settings live on page load ──────────────
+  (function init() {
+    // Accent colour
+    const accent = document.getElementById('accentInput').value;
+    if (accent) {
+      document.documentElement.style.setProperty('--accent', accent);
+      document.getElementById('accentHexDisplay').textContent = accent.toUpperCase();
+      // Highlight matching swatch if any
+      document.querySelectorAll('.colour-swatch').forEach(s => {
+        if (s.dataset.colour.toLowerCase() === accent.toLowerCase()) {
+          s.classList.add('selected');
+        }
+      });
+    }
+
+    // Font size
+    const fs = document.getElementById('fontSizeInput').value;
+    if (fs && fontSizeMap[fs]) {
+      document.documentElement.style.fontSize = fontSizeMap[fs];
+    }
+  })();
+
+  // ── Smooth scroll for side nav ───────────────────────────────────
+  document.querySelectorAll('.settings-nav-link').forEach(link => {
+    link.addEventListener('click', function(e) {
+      const href = this.getAttribute('href');
+      if (href && href.startsWith('#')) {
+        e.preventDefault();
+        const target = document.querySelector(href);
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.querySelectorAll('.settings-nav-link').forEach(l => l.classList.remove('active'));
+        this.classList.add('active');
+      }
+    });
+  });
+</script>
+{% endblock %}

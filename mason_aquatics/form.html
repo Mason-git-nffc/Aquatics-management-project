@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% set is_edit = record is not none and record.id %}
+{% block title %}{{ 'Edit' if is_edit else 'Add' }} Breeding Record — Mason Aquatics{% endblock %}
+
+{% block head %}
+<style>
+  .form-page { max-width: 700px; }
+
+  .form-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .form-section-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .form-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .form-row-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+  }
+
+  @media (max-width: 600px) {
+    .form-row-2, .form-row-3 { grid-template-columns: 1fr; }
+  }
+
+  .form-footer {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    padding: 0.85rem 1.5rem;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    margin: 0 -1.5rem -1.5rem;
+    z-index: 10;
+  }
+
+  .hatch-preview {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    height: 1.2em;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>
+      <i class="fa-solid fa-{{ 'pen' if is_edit else 'plus' }}" style="color:var(--accent)"></i>
+      {{ 'Edit' if is_edit else 'Add' }} Breeding Record
+    </h1>
+    <div class="breadcrumb">
+      <a href="{{ url_for('breeding.list_breeding') }}"
+         style="color:var(--text-muted); text-decoration:none;">Breeding Log</a>
+      {% if species %}
+      &rsaquo;
+      <a href="{{ url_for('species.detail', species_id=species.id) }}"
+         style="color:var(--text-muted); text-decoration:none;">{{ species.common_name }}</a>
+      {% endif %}
+      &rsaquo; {{ 'Edit Record' if is_edit else 'New Record' }}
+    </div>
+  </div>
+  <a href="{{ url_for('breeding.list_breeding') }}" class="btn btn-secondary">
+    <i class="fa-solid fa-arrow-left"></i> Back to Log
+  </a>
+</div>
+
+<div class="form-page">
+<form method="POST"
+      action="{{ url_for('breeding.edit_record', record_id=record.id) if is_edit else url_for('breeding.add_record') }}">
+
+  <!-- ── Species & Date ───────────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="form-section-title">
+      <i class="fa-solid fa-fish"></i> Species & Date
+    </div>
+
+    <div class="form-row-2" style="margin-bottom:1rem;">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label" for="species_id">
+          Species <span style="color:var(--danger)">*</span>
+        </label>
+        <select id="species_id" name="species_id" class="form-control" required>
+          <option value="">— Select Species —</option>
+          {% for s in all_species %}
+          <option value="{{ s.id }}"
+            {% if is_edit and record.species_id == s.id %}selected
+            {% elif not is_edit and species and species.id == s.id %}selected
+            {% endif %}>
+            {{ s.common_name }}{% if s.scientific_name %} — {{ s.scientific_name }}{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label" for="record_date">Date</label>
+        <input type="text" id="record_date" name="record_date" class="form-control"
+               placeholder="DD/MM/YYYY"
+               value="{{ record.record_date_display if is_edit else '' }}" />
+        <div class="field-hint" style="font-size:0.72rem; color:var(--text-muted); margin-top:0.25rem;">
+          UK format DD/MM/YYYY — leave blank for today
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Spawn Data ────────────────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="form-section-title">
+      <i class="fa-solid fa-egg"></i> Spawn Data
+    </div>
+
+    <div class="form-row-3" style="margin-bottom:0.5rem;">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label" for="eggs_laid">Eggs Laid / Fry Born</label>
+        <input type="number" id="eggs_laid" name="eggs_laid" class="form-control"
+               min="0" step="1"
+               value="{{ record.eggs_laid if is_edit and record.eggs_laid is not none else '' }}"
+               placeholder="e.g. 200"
+               oninput="updateHatchPreview()" />
+      </div>
+
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label" for="eggs_hatched">Eggs Hatched / Survived</label>
+        <input type="number" id="eggs_hatched" name="eggs_hatched" class="form-control"
+               min="0" step="1"
+               value="{{ record.eggs_hatched if is_edit and record.eggs_hatched is not none else '' }}"
+               placeholder="e.g. 140"
+               oninput="updateHatchPreview()" />
+      </div>
+
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label" for="tank_idc">Tank IDC</label>
+        <select id="tank_idc" name="tank_idc" class="form-control">
+          <option value="">— Unassigned —</option>
+          {% for t in tank_choices %}
+          <option value="{{ t }}"
+            {% if is_edit and record.tank_idc == t %}selected{% endif %}>
+            {{ t }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <!-- Live hatch rate preview -->
+    <div class="hatch-preview" id="hatchPreview"></div>
+  </div>
+
+  <!-- ── Notes ────────────────────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="form-section-title">
+      <i class="fa-solid fa-note-sticky"></i> Notes
+    </div>
+
+    <div class="form-group" style="margin-bottom:0">
+      <label class="form-label" for="notes">Observations / Notes</label>
+      <textarea id="notes" name="notes" class="form-control" rows="4"
+                placeholder="Describe spawning behaviour, conditions, any notable details…">{{ record.notes or '' if is_edit else '' }}</textarea>
+    </div>
+  </div>
+
+  <!-- ── Sticky footer ─────────────────────────────────────────────── -->
+  <div class="form-footer">
+    {% if is_edit %}
+    <a href="{{ url_for('species.detail', species_id=record.species_id) }}"
+       class="btn btn-secondary">Cancel</a>
+    {% else %}
+    <a href="{{ url_for('breeding.list_breeding') }}"
+       class="btn btn-secondary">Cancel</a>
+    {% endif %}
+    <button type="submit" class="btn btn-primary">
+      <i class="fa-solid fa-floppy-disk"></i>
+      {{ 'Save Changes' if is_edit else 'Add Record' }}
+    </button>
+  </div>
+
+</form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function updateHatchPreview() {
+    const laid    = parseInt(document.getElementById('eggs_laid').value) || 0;
+    const hatched = parseInt(document.getElementById('eggs_hatched').value) || 0;
+    const preview = document.getElementById('hatchPreview');
+
+    if (laid > 0 && hatched > 0) {
+      const rate = Math.round((hatched / laid) * 100 * 10) / 10;
+      const colour = rate >= 70
+        ? 'var(--success)'
+        : rate >= 40
+          ? 'var(--warning)'
+          : 'var(--danger)';
+      preview.innerHTML = `<i class="fa-solid fa-chart-simple" style="color:${colour}"></i>
+        Estimated hatch rate: <strong style="color:${colour}">${rate}%</strong>
+        (${hatched} of ${laid})`;
+    } else {
+      preview.textContent = '';
+    }
+  }
+
+  // Run on page load for edit form
+  updateHatchPreview();
+</script>
+{% endblock %}

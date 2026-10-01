@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+{% block title %}Feed Log — Mason Aquatics{% endblock %}
+
+{% block head %}
+<style>
+  .filter-bar {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: flex-end;
+  }
+
+  .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 130px;
+  }
+
+  .filter-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+
+  .filter-bar select {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.42rem 0.65rem;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    outline: none;
+    font-family: inherit;
+  }
+
+  .filter-bar select:focus { border-color: var(--accent); }
+
+  .add-form-wrap {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    display: none;
+    margin-bottom: 1rem;
+  }
+
+  .add-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.65rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .cost-preview {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    min-height: 1.1em;
+    margin-bottom: 0.5rem;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-muted);
+  }
+
+  .empty-state i { font-size: 3rem; color: var(--border); margin-bottom: 1rem; display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1><i class="fa-solid fa-bowl-rice" style="color:var(--accent)"></i> Feed Log</h1>
+    <div class="breadcrumb">Costs · Feed Usage &amp; Spend</div>
+  </div>
+  <div style="display:flex; gap:0.5rem;">
+    <a href="{{ url_for('costs.dashboard') }}" class="btn btn-secondary">
+      <i class="fa-solid fa-chart-pie"></i> Cost Dashboard
+    </a>
+    <button class="btn btn-primary" onclick="toggleSection('addFormWrap')">
+      <i class="fa-solid fa-plus"></i> Add Entry
+    </button>
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="stat-grid" style="margin-bottom:1.25rem;">
+  <div class="stat-card">
+    <div class="stat-label">Entries Shown</div>
+    <div class="stat-value">{{ entries | length }}</div>
+    <div class="stat-sub">{% if f_month %}filtered{% else %}all time{% endif %}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Total Feed Used</div>
+    <div class="stat-value" style="font-size:1.5rem;">{{ total_grams }}g</div>
+    <div class="stat-sub">grams</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Total Feed Cost</div>
+    <div class="stat-value" style="font-size:1.5rem; color:var(--warning);">£{{ '%.2f' | format(total_cost) }}</div>
+    <div class="stat-sub">{% if f_month %}this filter{% else %}all time{% endif %}</div>
+  </div>
+</div>
+
+<!-- Filter bar -->
+<form method="GET" action="{{ url_for('costs.feed_list') }}">
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label class="filter-label">Month</label>
+      <select name="month" onchange="this.form.submit()">
+        <option value="">All Time</option>
+        {% for label, val in month_choices %}
+        <option value="{{ val }}" {% if f_month == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label class="filter-label">Tank</label>
+      <select name="tank_idc" onchange="this.form.submit()">
+        <option value="">All Tanks</option>
+        <option value="__global__" {% if f_tank == '__global__' %}selected{% endif %}>Fish Room (global)</option>
+        {% for t in tank_choices %}
+        <option value="{{ t }}" {% if f_tank == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    {% if f_month or f_tank %}
+    <div style="align-self:flex-end;">
+      <a href="{{ url_for('costs.feed_list') }}" class="btn btn-secondary btn-sm">
+        <i class="fa-solid fa-xmark"></i> Clear
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</form>
+
+<!-- Add entry form (inline) -->
+<div class="add-form-wrap" id="addFormWrap">
+  <form method="POST" action="{{ url_for('costs.add_feed') }}">
+    <div class="add-form-grid">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Date</label>
+        <input type="text" name="feed_date" class="form-control"
+               placeholder="DD/MM/YYYY" />
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Brand</label>
+        <input type="text" name="brand" class="form-control"
+               placeholder="e.g. Hikari" />
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Feed Type</label>
+        <input type="text" name="feed_type" class="form-control"
+               placeholder="e.g. Flake, Pellet" />
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Amount (g)</label>
+        <input type="number" name="amount_grams" class="form-control"
+               step="0.1" min="0" placeholder="e.g. 50"
+               id="amountGrams" oninput="calcFeedCost()" />
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Cost per kg (£)</label>
+        <input type="number" name="cost_per_kg_gbp" class="form-control"
+               step="0.01" min="0" placeholder="e.g. 12.00"
+               id="costPerKg" oninput="calcFeedCost()" />
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Tank IDC (optional)</label>
+        <select name="tank_idc" class="form-control">
+          <option value="">Fish Room (global)</option>
+          {% for t in tank_choices %}
+          <option value="{{ t }}">{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Notes</label>
+        <input type="text" name="notes" class="form-control"
+               placeholder="Optional…" />
+      </div>
+    </div>
+    <div class="cost-preview" id="feedCostPreview"></div>
+    <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+      <button type="button" class="btn btn-secondary btn-sm"
+              onclick="toggleSection('addFormWrap')">Cancel</button>
+      <button type="submit" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-floppy-disk"></i> Save Entry
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- Feed log table -->
+{% if entries %}
+<div class="card" style="padding:0; overflow:hidden;">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Brand</th>
+          <th>Type</th>
+          <th>Amount</th>
+          <th>£/kg</th>
+          <th>Entry Cost</th>
+          <th>Tank</th>
+          <th>Notes</th>
+          <th style="width:50px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in entries %}
+        <tr>
+          <td style="white-space:nowrap;">{{ f.feed_date }}</td>
+          <td>{{ f.brand or '—' }}</td>
+          <td>{{ f.feed_type or '—' }}</td>
+          <td style="font-variant-numeric:tabular-nums;">{{ f.amount_grams or '—' }}{% if f.amount_grams %}g{% endif %}</td>
+          <td style="font-variant-numeric:tabular-nums;">
+            {% if f.cost_per_kg_gbp %}£{{ '%.2f' | format(f.cost_per_kg_gbp) }}{% else %}—{% endif %}
+          </td>
+          <td>
+            {% if f.cost_this_entry %}
+            <strong style="color:var(--warning);">£{{ '%.4f' | format(f.cost_this_entry) }}</strong>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% if f.tank_idc %}
+            <a href="{{ url_for('tanks.detail', tank_idc=f.tank_idc) }}"
+               style="text-decoration:none;">
+              <span class="badge badge-info">{{ f.tank_idc }}</span>
+            </a>
+            {% else %}
+            <span style="font-size:0.78rem; color:var(--text-muted);">Global</span>
+            {% endif %}
+          </td>
+          <td style="font-size:0.8rem; color:var(--text-muted);">{{ f.notes or '' }}</td>
+          <td>
+            <form method="POST"
+                  action="{{ url_for('costs.delete_feed', entry_id=f.id) }}"
+                  onsubmit="return confirm('Delete this feed entry?')">
+              <button type="submit" class="btn btn-danger btn-sm">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <i class="fa-solid fa-bowl-rice"></i>
+    <p>No feed entries yet.</p>
+    <button class="btn btn-primary" onclick="toggleSection('addFormWrap')">
+      <i class="fa-solid fa-plus"></i> Add First Entry
+    </button>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function toggleSection(id) {
+    const el = document.getElementById(id);
+    el.style.display = (el.style.display === '' || el.style.display === 'none') ? 'block' : 'none';
+  }
+
+  function calcFeedCost() {
+    const g    = parseFloat(document.getElementById('amountGrams').value) || 0;
+    const cpkg = parseFloat(document.getElementById('costPerKg').value)   || 0;
+    const prev = document.getElementById('feedCostPreview');
+    if (g > 0 && cpkg > 0) {
+      const cost = (g / 1000) * cpkg;
+      prev.innerHTML = `<i class="fa-solid fa-coins" style="color:var(--warning)"></i>
+        Entry cost: <strong style="color:var(--warning);">£${cost.toFixed(4)}</strong>
+        (${g}g at £${cpkg.toFixed(2)}/kg)`;
+    } else {
+      prev.textContent = '';
+    }
+  }
+</script>
+{% endblock %}

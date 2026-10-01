@@ -1,0 +1,367 @@
+{% extends "base.html" %}
+{% block title %}{{ article.title }} — Mason Aquatics{% endblock %}
+
+{% block head %}
+<style>
+  .article-layout {
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  @media (max-width: 860px) {
+    .article-layout { grid-template-columns: 1fr; }
+  }
+
+  /* ── Article body ──────────────────────────────────────────────── */
+  .article-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .article-card-header {
+    padding: 1.5rem 1.75rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .article-card-header h1 {
+    font-size: 1.65rem;
+    font-weight: 700;
+    color: var(--text-heading);
+    line-height: 1.25;
+    margin-bottom: 0.85rem;
+  }
+
+  .article-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .article-dates {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  /* ── Rendered Quill content ────────────────────────────────────── */
+  .article-content {
+    padding: 1.75rem;
+    line-height: 1.8;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+  }
+
+  /* Match Quill snow output styles */
+  .article-content h1,
+  .article-content h2,
+  .article-content h3 {
+    color: var(--text-heading);
+    font-weight: 700;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    line-height: 1.25;
+  }
+
+  .article-content h1 { font-size: 1.5em; }
+  .article-content h2 {
+    font-size: 1.2em;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--border);
+  }
+  .article-content h3 { font-size: 1.05em; }
+
+  .article-content p { margin-bottom: 0.85em; }
+
+  .article-content a {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+
+  .article-content strong { color: var(--text-heading); font-weight: 600; }
+
+  .article-content em { color: var(--text-muted); }
+
+  .article-content ul,
+  .article-content ol {
+    padding-left: 1.5em;
+    margin-bottom: 0.85em;
+  }
+
+  .article-content li { margin-bottom: 0.3em; }
+
+  .article-content blockquote {
+    border-left: 4px solid var(--accent);
+    color: var(--text-muted);
+    padding: 0.5rem 1rem;
+    margin: 0.85rem 0;
+    background: var(--bg-input);
+    border-radius: 0 4px 4px 0;
+    font-style: italic;
+  }
+
+  .article-content pre {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.85rem 1rem;
+    font-size: 0.85em;
+    overflow-x: auto;
+    margin-bottom: 0.85em;
+    font-family: 'Courier New', Courier, monospace;
+  }
+
+  .article-content code {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.1em 0.4em;
+    font-size: 0.88em;
+    font-family: 'Courier New', Courier, monospace;
+  }
+
+  .article-content hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1.5em 0;
+  }
+
+  /* Empty state */
+  .article-empty {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-muted);
+  }
+
+  .article-empty i {
+    font-size: 2.5rem;
+    color: var(--border);
+    display: block;
+    margin-bottom: 0.75rem;
+  }
+
+  /* ── Sidebar ───────────────────────────────────────────────────── */
+  .article-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    position: sticky;
+    top: 1rem;
+  }
+
+  .sidebar-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .sidebar-card-title {
+    padding: 0.7rem 1rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    background: var(--bg-input);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-card-body {
+    padding: 0.85rem 1rem;
+  }
+
+  .sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.5rem 0;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 0.875rem;
+    border-bottom: 1px solid var(--border);
+    transition: color 0.12s;
+  }
+
+  .sidebar-link:last-child { border-bottom: none; }
+  .sidebar-link:hover { color: var(--accent); }
+  .sidebar-link i { color: var(--accent); width: 14px; text-align: center; }
+
+  .delete-confirm {
+    width: 100%;
+    justify-content: center;
+    margin-top: 0.5rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb header -->
+<div class="page-header">
+  <div>
+    <div class="breadcrumb">
+      <a href="{{ url_for('articles.list_articles') }}"
+         style="color:var(--text-muted); text-decoration:none;">
+        <i class="fa-solid fa-book-open"></i> Documentation
+      </a>
+      &rsaquo; {{ article.title }}
+    </div>
+  </div>
+  <div style="display:flex; gap:0.5rem;">
+    <a href="{{ url_for('articles.edit_article', article_id=article.id) }}"
+       class="btn btn-secondary">
+      <i class="fa-solid fa-pen"></i> Edit
+    </a>
+    <a href="{{ url_for('articles.list_articles') }}" class="btn btn-secondary">
+      <i class="fa-solid fa-arrow-left"></i> Back
+    </a>
+  </div>
+</div>
+
+<div class="article-layout">
+
+  <!-- ── Main article card ──────────────────────────────────────── -->
+  <div class="article-card">
+
+    <div class="article-card-header">
+      <h1>{{ article.title }}</h1>
+
+      <!-- Tags -->
+      <div class="article-tags">
+        {% if article.species_id and species %}
+        <a href="{{ url_for('species.detail', species_id=article.species_id) }}"
+           style="text-decoration:none;">
+          <span class="badge badge-info">
+            <i class="fa-solid fa-fish-fins"></i> {{ species.common_name }}
+          </span>
+        </a>
+        {% endif %}
+        {% if article.tank_idc %}
+        <a href="{{ url_for('tanks.detail', tank_idc=article.tank_idc) }}"
+           style="text-decoration:none;">
+          <span class="badge badge-info">
+            <i class="fa-solid fa-water"></i> {{ article.tank_idc }}
+          </span>
+        </a>
+        {% endif %}
+        {% if not article.species_id and not article.tank_idc %}
+        <span class="badge" style="background:var(--bg-input); color:var(--text-muted);">
+          <i class="fa-solid fa-globe"></i> General
+        </span>
+        {% endif %}
+      </div>
+
+      <!-- Dates -->
+      <div class="article-dates">
+        {% if article.created_at %}
+        <span><i class="fa-solid fa-calendar-plus" style="color:var(--text-muted)"></i>
+          Created {{ article.created_at.strftime('%d/%m/%Y') }}</span>
+        {% endif %}
+        {% if article.updated_at and article.updated_at != article.created_at %}
+        <span><i class="fa-solid fa-rotate" style="color:var(--text-muted)"></i>
+          Updated {{ article.updated_at.strftime('%d/%m/%Y') }}</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Rendered content -->
+    {% if article.content_html %}
+    <div class="article-content">
+      {{ article.content_html | safe }}
+    </div>
+    {% else %}
+    <div class="article-empty">
+      <i class="fa-solid fa-file-circle-question"></i>
+      <p>This article has no content yet.</p>
+      <a href="{{ url_for('articles.edit_article', article_id=article.id) }}"
+         class="btn btn-primary btn-sm" style="margin-top:0.75rem;">
+        <i class="fa-solid fa-pen"></i> Add Content
+      </a>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- ── Sidebar ──────────────────────────────────────────────────── -->
+  <div class="article-sidebar">
+
+    <!-- Actions card -->
+    <div class="sidebar-card">
+      <div class="sidebar-card-title"><i class="fa-solid fa-sliders"></i> Actions</div>
+      <div class="sidebar-card-body">
+        <a href="{{ url_for('articles.edit_article', article_id=article.id) }}"
+           class="sidebar-link">
+          <i class="fa-solid fa-pen"></i> Edit Article
+        </a>
+        <a href="{{ url_for('articles.new_article') }}"
+           class="sidebar-link">
+          <i class="fa-solid fa-plus"></i> New Article
+        </a>
+        <a href="{{ url_for('articles.list_articles') }}"
+           class="sidebar-link">
+          <i class="fa-solid fa-list"></i> All Articles
+        </a>
+        <form method="POST"
+              action="{{ url_for('articles.delete_article', article_id=article.id) }}"
+              onsubmit="return confirm('Delete \'{{ article.title | replace(\"'\", \"\\'\") }}\'? This cannot be undone.')">
+          <button type="submit" class="btn btn-danger btn-sm delete-confirm">
+            <i class="fa-solid fa-trash"></i> Delete Article
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Linked species card -->
+    {% if article.species_id and species %}
+    <div class="sidebar-card">
+      <div class="sidebar-card-title"><i class="fa-solid fa-fish-fins"></i> Linked Species</div>
+      <div class="sidebar-card-body">
+        <a href="{{ url_for('species.detail', species_id=species.id) }}"
+           class="sidebar-link">
+          <i class="fa-solid fa-arrow-up-right-from-square"></i>
+          {{ species.common_name }}
+        </a>
+        {% if species.scientific_name %}
+        <div style="font-size:0.75rem; font-style:italic; color:var(--text-muted); padding-top:0.35rem;">
+          {{ species.scientific_name }}
+        </div>
+        {% endif %}
+        <div style="margin-top:0.75rem;">
+          <span class="badge
+            {% set stock = species.current_stock %}
+            {% if stock <= 0 %}badge-danger
+            {% elif stock < 3 %}badge-warning
+            {% else %}badge-success{% endif %}">
+            {{ stock }} in stock
+          </span>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Linked tank card -->
+    {% if article.tank_idc %}
+    <div class="sidebar-card">
+      <div class="sidebar-card-title"><i class="fa-solid fa-water"></i> Linked Tank</div>
+      <div class="sidebar-card-body">
+        <a href="{{ url_for('tanks.detail', tank_idc=article.tank_idc) }}"
+           class="sidebar-link">
+          <i class="fa-solid fa-arrow-up-right-from-square"></i>
+          {{ article.tank_idc }}
+        </a>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+</div>
+{% endblock %}

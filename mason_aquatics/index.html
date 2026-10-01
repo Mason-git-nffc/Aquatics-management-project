@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+{% block title %}Tank Labels — Mason Aquatics{% endblock %}
+
+{% block head %}
+<style>
+  /* ── Toolbar ─────────────────────────────────────────────────── */
+  .labels-toolbar {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  .labels-toolbar .toolbar-info {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    flex: 1;
+  }
+
+  /* ── Labels grid ─────────────────────────────────────────────── */
+  .labels-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0.875rem;
+  }
+
+  .label-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: border-color 0.15s;
+  }
+
+  .label-card:hover { border-color: var(--accent); }
+
+  .label-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .label-thumb {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .label-thumb-placeholder {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .label-card-info { flex: 1; min-width: 0; }
+
+  .label-species-name {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-heading);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .label-sci-name {
+    font-size: 0.75rem;
+    font-style: italic;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .label-card-actions {
+    padding: 0.75rem 1rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .label-card-meta {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0 1rem 0.6rem;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    flex-wrap: wrap;
+  }
+
+  /* Status dots */
+  .status-dot {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.72rem;
+  }
+
+  .status-dot::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  .status-dot.ready::before { background: var(--success); }
+
+  /* ── Sheet generator panel ────────────────────────────────────── */
+  .sheet-panel {
+    background: linear-gradient(135deg, rgba(33,150,243,0.08), rgba(33,150,243,0.03));
+    border: 1px solid rgba(33,150,243,0.25);
+    border-radius: 8px;
+    padding: 1.1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+  }
+
+  .sheet-panel-info { flex: 1; }
+  .sheet-panel-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-heading);
+    margin-bottom: 0.2rem;
+  }
+  .sheet-panel-sub { font-size: 0.78rem; color: var(--text-muted); }
+
+  /* ── Empty state ─────────────────────────────────────────────── */
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-muted);
+  }
+
+  .empty-state i {
+    font-size: 3rem;
+    color: var(--border);
+    margin-bottom: 1rem;
+    display: block;
+  }
+
+  /* ── Select all checkbox area ────────────────────────────────── */
+  .select-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+
+  input[type="checkbox"] {
+    accent-color: var(--accent);
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+  }
+
+  #selectedCount { color: var(--accent); font-weight: 600; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1><i class="fa-solid fa-tag" style="color:var(--accent)"></i> Tank Labels</h1>
+    <div class="breadcrumb">Reports · Generate QR Codes &amp; Printable Labels</div>
+  </div>
+</div>
+
+<!-- Sheet generator panel -->
+<div class="sheet-panel">
+  <div class="sheet-panel-info">
+    <div class="sheet-panel-title">
+      <i class="fa-solid fa-file-pdf" style="color:var(--accent)"></i>
+      Print Label Sheet
+    </div>
+    <div class="sheet-panel-sub">
+      Generates an A4 PDF sheet with 10 labels per page (2 columns × 5 rows, 99&times;57&nbsp;mm each).
+      Select species below and click Print Selected, or print all at once.
+    </div>
+  </div>
+  <div style="display:flex; gap:0.5rem; flex-wrap:wrap; flex-shrink:0;">
+    <a href="{{ url_for('labels.download_sheet') }}" class="btn btn-secondary">
+      <i class="fa-solid fa-print"></i> Print All
+    </a>
+    <button class="btn btn-primary" id="printSelectedBtn"
+            onclick="printSelected()" disabled>
+      <i class="fa-solid fa-print"></i> Print Selected
+      (<span id="selectedCount">0</span>)
+    </button>
+  </div>
+</div>
+
+<!-- Toolbar -->
+<div class="labels-toolbar">
+  <div class="select-controls">
+    <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)" />
+    <label for="selectAll">Select All</label>
+    <span style="color:var(--border)">|</span>
+    <span><span id="selectedCountBar">0</span> selected</span>
+  </div>
+  <div class="toolbar-info">
+    {{ species_list | length }} species ·
+    Per-species: download QR code (PNG) or individual label (PDF)
+  </div>
+</div>
+
+<!-- Species cards -->
+{% if species_list %}
+<div class="labels-grid" id="labelsGrid">
+  {% for s in species_list %}
+  <div class="label-card">
+    <div class="label-card-header">
+      <!-- Select checkbox -->
+      <input type="checkbox" class="species-cb" value="{{ s.id }}"
+             onchange="updateSelectedCount()"
+             style="margin-top:0;" />
+
+      <!-- Photo -->
+      {% if s.display_photo %}
+      <img src="{{ url_for('static', filename='uploads/photos/' ~ s.display_photo) }}"
+           alt="{{ s.common_name }}"
+           class="label-thumb" />
+      {% else %}
+      <div class="label-thumb-placeholder">
+        <i class="fa-solid fa-fish" style="font-size:1rem;"></i>
+      </div>
+      {% endif %}
+
+      <div class="label-card-info">
+        <div class="label-species-name">{{ s.common_name }}</div>
+        <div class="label-sci-name">{{ s.scientific_name or '—' }}</div>
+      </div>
+    </div>
+
+    <div class="label-card-meta">
+      {% if s.min_temp_c or s.max_temp_c %}
+      <span>
+        <i class="fa-solid fa-temperature-half"></i>
+        {{ s.min_temp_c | int if s.min_temp_c else '?' }}°–{{ s.max_temp_c | int if s.max_temp_c else '?' }}°C
+      </span>
+      {% endif %}
+      {% if s.ideal_ph %}
+      <span><i class="fa-solid fa-flask"></i> pH {{ s.ideal_ph }}</span>
+      {% endif %}
+      {% if s.tank_idc %}
+      <span><i class="fa-solid fa-water"></i> {{ s.tank_idc }}</span>
+      {% endif %}
+      <span class="status-dot {{ 'ready' if s._has_qr else '' }}">
+        QR {{ 'ready' if s._has_qr else 'not generated' }}
+      </span>
+      <span class="status-dot {{ 'ready' if s._has_label else '' }}">
+        Label {{ 'ready' if s._has_label else 'not generated' }}
+      </span>
+    </div>
+
+    <div class="label-card-actions">
+      <!-- QR -->
+      <a href="{{ url_for('labels.download_qr', species_id=s.id) }}"
+         class="btn btn-secondary btn-sm" title="Download QR Code PNG">
+        <i class="fa-solid fa-qrcode"></i> QR Code
+      </a>
+
+      <!-- Label PDF -->
+      <a href="{{ url_for('labels.download_label', species_id=s.id) }}"
+         class="btn btn-secondary btn-sm" title="Download Label PDF (99×57mm)">
+        <i class="fa-solid fa-tag"></i> Label PDF
+      </a>
+
+      <!-- Public page -->
+      <a href="{{ url_for('public.species', species_id=s.id) }}"
+         class="btn btn-secondary btn-sm" target="_blank" title="Preview public page">
+        <i class="fa-solid fa-arrow-up-right-from-square"></i> Public
+      </a>
+
+      <!-- Species detail -->
+      <a href="{{ url_for('species.detail', species_id=s.id) }}"
+         class="btn btn-secondary btn-sm" style="margin-left:auto" title="Edit species">
+        <i class="fa-solid fa-pen"></i>
+      </a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <i class="fa-solid fa-tag"></i>
+    <p>No species added yet.</p>
+    <a href="{{ url_for('species.add_species') }}" class="btn btn-primary">
+      <i class="fa-solid fa-plus"></i> Add Species
+    </a>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function updateSelectedCount() {
+    const checked = document.querySelectorAll('.species-cb:checked');
+    const n = checked.length;
+    document.getElementById('selectedCount').textContent = n;
+    document.getElementById('selectedCountBar').textContent = n;
+    document.getElementById('printSelectedBtn').disabled = (n === 0);
+  }
+
+  function toggleSelectAll(cb) {
+    document.querySelectorAll('.species-cb').forEach(c => c.checked = cb.checked);
+    updateSelectedCount();
+  }
+
+  function printSelected() {
+    const ids = [...document.querySelectorAll('.species-cb:checked')].map(c => c.value);
+    if (!ids.length) return;
+    window.location.href = '{{ url_for("labels.download_sheet") }}?ids=' + ids.join(',');
+  }
+</script>
+{% endblock %}

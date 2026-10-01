@@ -1,0 +1,821 @@
+{% extends "base.html" %}
+{% block title %}{{ tank.tank_idc }} — Mason Aquatics{% endblock %}
+
+{% block head %}
+<style>
+  /* ── Summary strip ──────────────────────────────────────────────── */
+  .tank-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .ts-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.1rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ts-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+    border-radius: 8px 8px 0 0;
+  }
+
+  .ts-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+  }
+
+  .ts-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .ts-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+  /* ── Chart ──────────────────────────────────────────────────────── */
+  .chart-wrap {
+    position: relative;
+    height: 220px;
+    margin-bottom: 0.5rem;
+  }
+
+  /* ── Inline form ────────────────────────────────────────────────── */
+  .inline-form-wrap {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    display: none;
+    margin-bottom: 1rem;
+  }
+
+  .test-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.65rem;
+    margin-bottom: 0.65rem;
+  }
+
+  .equip-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.65rem;
+    margin-bottom: 0.65rem;
+  }
+
+  /* ── Parameter colour coding ────────────────────────────────────── */
+  .param-ok      { color: var(--success); font-weight: 600; }
+  .param-warning { color: var(--warning); font-weight: 600; }
+  .param-danger  { color: var(--danger);  font-weight: 600; }
+
+  /* ── Species in tank grid ───────────────────────────────────────── */
+  .species-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .species-mini-card {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    transition: border-color 0.15s;
+  }
+
+  .species-mini-card:hover { border-color: var(--accent); }
+
+  .species-mini-thumb {
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .species-mini-placeholder {
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  /* ── kWh bar ────────────────────────────────────────────────────── */
+  .kwh-bar-wrap { display: flex; align-items: center; gap: 0.5rem; flex: 1; }
+  .kwh-bar { flex: 1; height: 5px; background: var(--bg-input); border-radius: 3px; overflow: hidden; min-width: 40px; }
+  .kwh-bar-fill { height: 100%; background: var(--accent); border-radius: 3px; }
+
+  /* ── Primer calc ────────────────────────────────────────────────── */
+  .primer-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .primer-card {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    text-align: center;
+  }
+
+  .primer-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+  }
+
+  .primer-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .primer-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+  /* ── Empty state ────────────────────────────────────────────────── */
+  .empty-state {
+    text-align: center;
+    padding: 2.5rem 2rem;
+    color: var(--text-muted);
+  }
+
+  .empty-state i { font-size: 2.5rem; color: var(--border); margin-bottom: 0.75rem; display: block; }
+
+  /* ── Documentation banner ───────────────────────────────────────── */
+  .doc-banner {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    background: linear-gradient(135deg, rgba(33,150,243,0.07), rgba(33,150,243,0.02));
+    border-radius: 8px;
+    border: 1px solid rgba(33,150,243,0.2);
+    flex-wrap: wrap;
+  }
+
+  .doc-banner-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 8px;
+    background: rgba(33,150,243,0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+
+  .doc-banner-info { flex: 1; min-width: 140px; }
+
+  .doc-banner-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-heading);
+    margin-bottom: 0.2rem;
+  }
+
+  .doc-banner-sub { font-size: 0.78rem; color: var(--text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page header -->
+<div class="page-header">
+  <div>
+    <h1>
+      <i class="fa-solid fa-water" style="color:var(--accent)"></i>
+      {{ tank.tank_idc }}
+    </h1>
+    <div class="breadcrumb">
+      <a href="{{ url_for('tanks.list_tanks') }}"
+         style="color:var(--text-muted); text-decoration:none;">Tanks</a>
+      &rsaquo; {{ tank.tank_idc }}
+      {% if tank.location %} · {{ tank.location }}{% endif %}
+    </div>
+  </div>
+  <a href="{{ url_for('tanks.edit_tank', tank_idc=tank.tank_idc) }}" class="btn btn-secondary">
+    <i class="fa-solid fa-pen"></i> Edit Tank
+  </a>
+</div>
+
+<!-- Summary strip -->
+<div class="tank-summary">
+  <div class="ts-card">
+    <div class="ts-label">Volume</div>
+    <div class="ts-value">
+      {% if tank.volume_litres %}{{ tank.volume_litres | int }}{% else %}—{% endif %}
+    </div>
+    <div class="ts-sub">litres</div>
+  </div>
+
+  <div class="ts-card">
+    <div class="ts-label">Species</div>
+    <div class="ts-value">{{ species_in_tank | length }}</div>
+    <div class="ts-sub">currently housed</div>
+  </div>
+
+  <div class="ts-card">
+    <div class="ts-label">Equipment</div>
+    <div class="ts-value">{{ equipment | length }}</div>
+    <div class="ts-sub">items registered</div>
+  </div>
+
+  <div class="ts-card">
+    <div class="ts-label">Est. Monthly kWh</div>
+    <div class="ts-value" style="font-size:1.5rem;">{{ monthly_kwh }}</div>
+    <div class="ts-sub">from equipment</div>
+  </div>
+
+  {% if all_tests %}
+  {% set latest = all_tests[0] %}
+  {% if latest.temperature_c %}
+  <div class="ts-card">
+    <div class="ts-label">Last Temp</div>
+    <div class="ts-value">{{ latest.temperature_c | int }}°</div>
+    <div class="ts-sub">{{ latest.test_date_display }}</div>
+  </div>
+  {% endif %}
+  {% if latest.ph %}
+  <div class="ts-card">
+    <div class="ts-label">Last pH</div>
+    <div class="ts-value" style="font-size:1.5rem;">{{ latest.ph }}</div>
+    <div class="ts-sub">{{ latest.test_date_display }}</div>
+  </div>
+  {% endif %}
+  {% endif %}
+</div>
+
+<!-- Species in tank -->
+<div class="card" style="margin-bottom:1.25rem">
+  <div class="card-header">
+    <span class="card-title"><i class="fa-solid fa-fish-fins"></i> Species in Tank</span>
+    <a href="{{ url_for('species.list_species') }}" class="btn btn-secondary btn-sm">
+      <i class="fa-solid fa-fish-fins"></i> Manage Species
+    </a>
+  </div>
+
+  {% if species_in_tank %}
+  <div class="species-grid">
+    {% for s in species_in_tank %}
+    <a href="{{ url_for('species.detail', species_id=s.id) }}" class="species-mini-card">
+      {% if s.display_photo %}
+      <img src="{{ url_for('static', filename='uploads/photos/' ~ s.display_photo) }}"
+           alt="{{ s.common_name }}" class="species-mini-thumb" />
+      {% else %}
+      <div class="species-mini-placeholder">
+        <i class="fa-solid fa-fish"></i>
+      </div>
+      {% endif %}
+      <div style="min-width:0;">
+        <div style="font-size:0.875rem; font-weight:600; color:var(--text-heading);
+                    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+          {{ s.common_name }}
+        </div>
+        <div style="font-size:0.72rem; font-style:italic; color:var(--text-muted);">
+          {{ s.scientific_name or '—' }}
+        </div>
+        {% set stock = s.current_stock %}
+        <span class="badge
+          {% if stock <= 0 %}badge-danger
+          {% elif stock < 3 %}badge-warning
+          {% else %}badge-success{% endif %}"
+          style="margin-top:0.2rem; font-size:0.62rem;">
+          {{ stock }} in stock
+        </span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i class="fa-solid fa-fish-fins"></i>
+    <p style="font-size:0.875rem;">No species assigned to this tank.</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Temperature / pH chart -->
+{% if chart_labels %}
+<div class="card" style="margin-bottom:1.25rem">
+  <div class="card-header">
+    <span class="card-title">
+      <i class="fa-solid fa-chart-line"></i> Temperature &amp; pH History
+    </span>
+    <span style="font-size:0.75rem; color:var(--text-muted);">Last {{ chart_labels | length }} tests</span>
+  </div>
+  <div class="chart-wrap">
+    <canvas id="tankChart"></canvas>
+  </div>
+</div>
+{% endif %}
+
+<!-- Water test history -->
+<div class="card" style="margin-bottom:1.25rem">
+  <div class="card-header">
+    <span class="card-title"><i class="fa-solid fa-flask"></i> Water Tests</span>
+    <button class="btn btn-secondary btn-sm" onclick="toggleSection('testFormWrap')">
+      <i class="fa-solid fa-plus"></i> Add Test
+    </button>
+  </div>
+
+  <!-- Inline add test form -->
+  <div class="inline-form-wrap" id="testFormWrap">
+    <form method="POST" action="{{ url_for('tanks.add_test', tank_idc=tank.tank_idc) }}">
+      <div class="test-form-grid">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Date</label>
+          <input type="text" name="test_date" class="form-control" placeholder="DD/MM/YYYY" />
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Temp (°C)</label>
+          <input type="number" name="temperature_c" class="form-control"
+                 step="0.1" min="0" max="40" placeholder="e.g. 26.5" />
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">pH</label>
+          <input type="number" name="ph" class="form-control"
+                 step="0.1" min="0" max="14" placeholder="e.g. 7.2" />
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Ammonia (ppm)</label>
+          <input type="number" name="ammonia_ppm" class="form-control"
+                 step="0.01" min="0" placeholder="e.g. 0" />
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Nitrite (ppm)</label>
+          <input type="number" name="nitrite_ppm" class="form-control"
+                 step="0.01" min="0" placeholder="e.g. 0" />
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Nitrate (ppm)</label>
+          <input type="number" name="nitrate_ppm" class="form-control"
+                 step="1" min="0" placeholder="e.g. 10" />
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">GH</label>
+          <input type="number" name="gh" class="form-control"
+                 step="0.5" min="0" placeholder="e.g. 8" />
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">KH</label>
+          <input type="number" name="kh" class="form-control"
+                 step="0.5" min="0" placeholder="e.g. 4" />
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Recorded By</label>
+          <input type="text" name="recorded_by" class="form-control" placeholder="Name…" />
+        </div>
+        <div class="form-group" style="margin-bottom:0; grid-column: span 2;">
+          <label class="form-label">Notes</label>
+          <input type="text" name="notes" class="form-control" placeholder="Optional observations…" />
+        </div>
+      </div>
+      <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+        <button type="button" class="btn btn-secondary btn-sm"
+                onclick="toggleSection('testFormWrap')">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">
+          <i class="fa-solid fa-floppy-disk"></i> Save Test
+        </button>
+      </div>
+    </form>
+  </div>
+
+  {% if all_tests %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Temp</th>
+          <th>pH</th>
+          <th>NH₃</th>
+          <th>NO₂</th>
+          <th>NO₃</th>
+          <th>GH</th>
+          <th>KH</th>
+          <th>Notes</th>
+          <th style="width:50px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in all_tests %}
+        <tr>
+          <td style="white-space:nowrap; font-size:0.82rem;">{{ t.test_date_display }}</td>
+
+          <td>{% if t.temperature_c is not none %}
+            <span style="font-weight:600; color:var(--accent);">{{ t.temperature_c }}°C</span>
+          {% else %}—{% endif %}</td>
+
+          <td>{% if t.ph is not none %}{{ t.ph }}{% else %}—{% endif %}</td>
+
+          <td>{% if t.ammonia_ppm is not none %}
+            <span class="{{ 'param-danger' if t.ammonia_ppm > 0 else 'param-ok' }}">
+              {{ t.ammonia_ppm }}
+            </span>
+          {% else %}—{% endif %}</td>
+
+          <td>{% if t.nitrite_ppm is not none %}
+            <span class="{{ 'param-danger' if t.nitrite_ppm > 0 else 'param-ok' }}">
+              {{ t.nitrite_ppm }}
+            </span>
+          {% else %}—{% endif %}</td>
+
+          <td>{% if t.nitrate_ppm is not none %}
+            <span class="{{ 'param-warning' if t.nitrate_ppm >= 20 else 'param-ok' }}">
+              {{ t.nitrate_ppm }}
+            </span>
+          {% else %}—{% endif %}</td>
+
+          <td>{{ t.gh if t.gh is not none else '—' }}</td>
+          <td>{{ t.kh if t.kh is not none else '—' }}</td>
+          <td style="font-size:0.78rem; color:var(--text-muted);">{{ t.notes or '' }}</td>
+
+          <td>
+            <form method="POST"
+                  action="{{ url_for('tanks.delete_test', test_id=t.id) }}"
+                  onsubmit="return confirm('Delete this water test record?')">
+              <button type="submit" class="btn btn-danger btn-sm">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i class="fa-solid fa-flask"></i>
+    <p style="font-size:0.875rem;">No water tests recorded yet.</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Equipment -->
+<div class="card" style="margin-bottom:1.25rem">
+  <div class="card-header">
+    <span class="card-title"><i class="fa-solid fa-plug"></i> Equipment</span>
+    <button class="btn btn-secondary btn-sm" onclick="toggleSection('equipFormWrap')">
+      <i class="fa-solid fa-plus"></i> Add Equipment
+    </button>
+  </div>
+
+  <!-- Inline add equipment form -->
+  <div class="inline-form-wrap" id="equipFormWrap">
+    <form method="POST" action="{{ url_for('tanks.add_equipment', tank_idc=tank.tank_idc) }}">
+      <div class="equip-form-grid">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Type</label>
+          <select name="equipment_type" class="form-control">
+            {% for t in equipment_type_choices %}
+            <option value="{{ t }}">{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Brand</label>
+          <input type="text" name="brand" class="form-control" placeholder="e.g. Fluval" />
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Model</label>
+          <input type="text" name="model" class="form-control" placeholder="e.g. 306" />
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Wattage (W)</label>
+          <input type="number" name="wattage" class="form-control"
+                 step="0.1" min="0" placeholder="e.g. 50" />
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Hours/Day</label>
+          <input type="number" name="hours_per_day" class="form-control"
+                 step="0.5" min="0" max="24" value="24" placeholder="24" />
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Notes</label>
+          <input type="text" name="notes" class="form-control" placeholder="Optional…" />
+        </div>
+      </div>
+      <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+        <button type="button" class="btn btn-secondary btn-sm"
+                onclick="toggleSection('equipFormWrap')">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">
+          <i class="fa-solid fa-floppy-disk"></i> Add Equipment
+        </button>
+      </div>
+    </form>
+  </div>
+
+  {% if equipment %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Brand / Model</th>
+          <th>Wattage</th>
+          <th>Hours/Day</th>
+          <th style="min-width:140px">Daily kWh</th>
+          <th>Notes</th>
+          <th style="width:50px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set max_kwh = equipment | map(attribute='daily_kwh') | max %}
+        {% for e in equipment %}
+        <tr>
+          <td>
+            <span class="badge badge-info">{{ e.equipment_type }}</span>
+          </td>
+          <td>
+            <span style="font-weight:500;">{{ e.brand or '—' }}</span>
+            {% if e.model %}
+            <span style="color:var(--text-muted); font-size:0.8rem;"> {{ e.model }}</span>
+            {% endif %}
+          </td>
+          <td>{% if e.wattage %}{{ e.wattage }}W{% else %}—{% endif %}</td>
+          <td>{{ e.hours_per_day }}h</td>
+          <td>
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+              <div class="kwh-bar">
+                <div class="kwh-bar-fill"
+                     style="width:{{ ((e.daily_kwh / max_kwh) * 100) | round(1) if max_kwh else 0 }}%"></div>
+              </div>
+              <span style="font-size:0.78rem; color:var(--text-muted); white-space:nowrap;">
+                {{ '%.4f' | format(e.daily_kwh) }} kWh
+              </span>
+            </div>
+          </td>
+          <td style="font-size:0.78rem; color:var(--text-muted);">{{ e.notes or '' }}</td>
+          <td>
+            <form method="POST"
+                  action="{{ url_for('tanks.delete_equipment', equip_id=e.id) }}"
+                  onsubmit="return confirm('Remove this equipment?')">
+              <button type="submit" class="btn btn-danger btn-sm">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- kWh / cost summary -->
+  <div style="display:flex; gap:1.5rem; padding:0.75rem 0 0;
+              border-top:1px solid var(--border); margin-top:0.5rem;
+              font-size:0.8rem; color:var(--text-muted); flex-wrap:wrap;">
+    <span>Daily total:
+      <strong style="color:var(--text-primary)">{{ '%.4f' | format(total_daily_kwh) }} kWh</strong>
+    </span>
+    <span>Monthly estimate:
+      <strong style="color:var(--warning)">{{ monthly_kwh }} kWh</strong>
+    </span>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i class="fa-solid fa-plug"></i>
+    <p style="font-size:0.875rem;">No equipment registered. Click "Add Equipment" above.</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Primer Calculator -->
+{% if tank.volume_litres %}
+<div class="card" style="margin-bottom:1.25rem">
+  <div class="card-header">
+    <span class="card-title">
+      <i class="fa-solid fa-calculator"></i> Seachem Prime Dose Calculator
+    </span>
+    <span style="font-size:0.75rem; color:var(--text-muted);">
+      {{ tank.volume_litres }} L tank
+    </span>
+  </div>
+  <div class="primer-grid">
+    {% if primer_25 %}
+    <div class="primer-card">
+      <div class="primer-label">25% Water Change</div>
+      <div class="primer-value">{{ primer_25 }} <span style="font-size:1rem;">ml</span></div>
+      <div class="primer-sub">{{ (tank.volume_litres * 0.25) | int }} L changed</div>
+    </div>
+    {% endif %}
+    {% if primer_50 %}
+    <div class="primer-card">
+      <div class="primer-label">50% Water Change</div>
+      <div class="primer-value">{{ primer_50 }} <span style="font-size:1rem;">ml</span></div>
+      <div class="primer-sub">{{ (tank.volume_litres * 0.50) | int }} L changed</div>
+    </div>
+    {% endif %}
+  </div>
+  <div style="font-size:0.72rem; color:var(--text-muted); margin-top:0.65rem;">
+    Formula: (volume × change%) ÷ 200 × 5 ml &nbsp;|&nbsp;
+    5 ml Seachem Prime treats 200 L.
+    <a href="{{ url_for('tanks.edit_tank', tank_idc=tank.tank_idc) }}"
+       style="color:var(--accent);">Update volume</a>
+  </div>
+</div>
+{% endif %}
+
+<!-- Tank Notes -->
+{% if tank.notes %}
+<div class="card" style="margin-bottom:1.25rem">
+  <div class="card-header">
+    <span class="card-title"><i class="fa-solid fa-note-sticky"></i> Tank Notes</span>
+    <a href="{{ url_for('tanks.edit_tank', tank_idc=tank.tank_idc) }}"
+       class="btn btn-secondary btn-sm">
+      <i class="fa-solid fa-pen"></i> Edit
+    </a>
+  </div>
+  <p style="font-size:0.9rem; line-height:1.7; color:var(--text-primary);">
+    {{ tank.notes }}
+  </p>
+</div>
+{% endif %}
+
+<!-- Documentation -->
+<div class="card" style="margin-bottom:1.25rem">
+  <div class="card-header">
+    <span class="card-title">
+      <i class="fa-solid fa-book-open"></i> Documentation
+    </span>
+    {% if tank_articles %}
+    <a href="{{ url_for('articles.edit_article', article_id=tank_articles[0].id) }}"
+       class="btn btn-secondary btn-sm">
+      <i class="fa-solid fa-pen"></i> Edit Article
+    </a>
+    {% endif %}
+  </div>
+
+  {% if tank_articles %}
+    {% set doc = tank_articles[0] %}
+    <div class="doc-banner">
+      <div class="doc-banner-icon">
+        <i class="fa-solid fa-file-lines"></i>
+      </div>
+      <div class="doc-banner-info">
+        <div class="doc-banner-title">{{ doc.title }}</div>
+        <div class="doc-banner-sub">
+          {% if doc.updated_at %}
+            Last updated {{ doc.updated_at.strftime('%d/%m/%Y') }}
+          {% elif doc.created_at %}
+            Created {{ doc.created_at.strftime('%d/%m/%Y') }}
+          {% endif %}
+        </div>
+      </div>
+      <a href="{{ url_for('articles.article_detail', article_id=doc.id) }}"
+         class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-eye"></i> Read Article
+      </a>
+    </div>
+    {% if tank_articles | length > 1 %}
+    <div style="margin-top:0.85rem; padding-top:0.85rem; border-top:1px solid var(--border);">
+      <div style="font-size:0.72rem; font-weight:600; text-transform:uppercase;
+                  letter-spacing:0.07em; color:var(--text-muted); margin-bottom:0.5rem;">
+        More Articles
+      </div>
+      {% for a in tank_articles[1:] %}
+      <div style="display:flex; justify-content:space-between; align-items:center;
+                  padding:0.45rem 0; border-bottom:1px solid var(--border); font-size:0.875rem;">
+        <a href="{{ url_for('articles.article_detail', article_id=a.id) }}"
+           style="color:var(--text-heading); text-decoration:none; font-weight:500;">
+          {{ a.title }}
+        </a>
+        <span style="font-size:0.72rem; color:var(--text-muted);">
+          {% if a.updated_at %}{{ a.updated_at.strftime('%d/%m/%Y') }}{% endif %}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% else %}
+  <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem;">
+    <p style="color:var(--text-muted); font-size:0.875rem; margin:0;">
+      No documentation article linked to {{ tank.tank_idc }} yet.
+    </p>
+    <a href="{{ url_for('articles.new_article', tank_idc=tank.tank_idc) }}"
+       class="btn btn-secondary btn-sm">
+      <i class="fa-solid fa-plus"></i> Add Documentation
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function toggleSection(id) {
+    const el = document.getElementById(id);
+    el.style.display = (el.style.display === '' || el.style.display === 'none')
+      ? 'block' : 'none';
+  }
+
+  {% if chart_labels %}
+  const accent  = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()  || '#2196F3';
+  const success = getComputedStyle(document.documentElement).getPropertyValue('--success').trim() || '#3fb950';
+  const muted   = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#8b949e';
+  const border  = getComputedStyle(document.documentElement).getPropertyValue('--border').trim()  || '#30363d';
+
+  new Chart(document.getElementById('tankChart'), {
+    type: 'line',
+    data: {
+      labels: {{ chart_labels | tojson }},
+      datasets: [
+        {
+          label: 'Temperature (°C)',
+          data: {{ chart_temps | tojson }},
+          borderColor: accent,
+          backgroundColor: accent + '22',
+          tension: 0.3,
+          fill: true,
+          pointBackgroundColor: accent,
+          yAxisID: 'yTemp',
+        },
+        {
+          label: 'pH',
+          data: {{ chart_ph | tojson }},
+          borderColor: success,
+          backgroundColor: 'transparent',
+          borderDash: [5, 3],
+          tension: 0.3,
+          pointBackgroundColor: success,
+          yAxisID: 'yPh',
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          labels: { color: muted, font: { size: 11 } },
+        },
+        tooltip: {
+          backgroundColor: '#1c2128',
+          titleColor: '#e6edf3',
+          bodyColor: muted,
+          borderColor: border,
+          borderWidth: 1,
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: muted, font: { size: 10 }, maxTicksLimit: 10 },
+          grid: { color: border },
+        },
+        yTemp: {
+          type: 'linear',
+          position: 'left',
+          ticks: { color: accent, font: { size: 10 }, callback: v => v + '°C' },
+          grid: { color: border },
+        },
+        yPh: {
+          type: 'linear',
+          position: 'right',
+          ticks: { color: success, font: { size: 10 }, callback: v => 'pH ' + v },
+          grid: { drawOnChartArea: false },
+          min: 5,
+          max: 9,
+        },
+      },
+    },
+  });
+  {% endif %}
+</script>
+{% endblock %}

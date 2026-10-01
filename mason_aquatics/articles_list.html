@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% block title %}Documentation — Mason Aquatics{% endblock %}
+
+{% block head %}
+<style>
+  .doc-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .ds-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.1rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ds-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+    border-radius: 8px 8px 0 0;
+  }
+
+  .ds-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+  }
+
+  .ds-value {
+    font-size: 1.9rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .ds-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+  /* Article cards in the list */
+  .article-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .article-row {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: border-color 0.15s;
+    flex-wrap: wrap;
+  }
+
+  .article-row:hover { border-color: var(--accent); }
+
+  .article-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    background: rgba(33,150,243,0.1);
+    border: 1px solid rgba(33,150,243,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  .article-meta { flex: 1; min-width: 180px; }
+
+  .article-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-heading);
+    text-decoration: none;
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+
+  .article-title:hover { color: var(--accent); }
+
+  .article-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+  }
+
+  .article-date {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .article-actions {
+    display: flex;
+    gap: 0.4rem;
+    flex-shrink: 0;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 5rem 2rem;
+    color: var(--text-muted);
+  }
+
+  .empty-state i {
+    font-size: 3rem;
+    color: var(--border);
+    margin-bottom: 1rem;
+    display: block;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1><i class="fa-solid fa-book-open" style="color:var(--accent)"></i> Documentation</h1>
+    <div class="breadcrumb">Articles &amp; Species / Tank Notes</div>
+  </div>
+  <a href="{{ url_for('articles.new_article') }}" class="btn btn-primary">
+    <i class="fa-solid fa-plus"></i> New Article
+  </a>
+</div>
+
+<!-- Summary strip -->
+<div class="doc-summary">
+  <div class="ds-card">
+    <div class="ds-label">Total Articles</div>
+    <div class="ds-value">{{ articles | length }}</div>
+    <div class="ds-sub">documentation pages</div>
+  </div>
+  <div class="ds-card">
+    <div class="ds-label">Linked to Species</div>
+    <div class="ds-value">{{ articles | selectattr('species_id') | list | length }}</div>
+    <div class="ds-sub">species articles</div>
+  </div>
+  <div class="ds-card">
+    <div class="ds-label">Linked to Tanks</div>
+    <div class="ds-value">{{ articles | selectattr('tank_idc') | list | length }}</div>
+    <div class="ds-sub">tank articles</div>
+  </div>
+  <div class="ds-card">
+    <div class="ds-label">General Notes</div>
+    <div class="ds-value">
+      {{ articles | rejectattr('species_id') | rejectattr('tank_idc') | list | length }}
+    </div>
+    <div class="ds-sub">unlinked articles</div>
+  </div>
+</div>
+
+{% if articles %}
+<div class="article-list">
+  {% for a in articles %}
+  <div class="article-row">
+
+    <!-- Icon -->
+    <div class="article-icon">
+      <i class="fa-solid fa-file-lines"></i>
+    </div>
+
+    <!-- Meta -->
+    <div class="article-meta">
+      <a href="{{ url_for('articles.article_detail', article_id=a.id) }}"
+         class="article-title">{{ a.title }}</a>
+      <div class="article-tags">
+        {% if a.species_id and a.species %}
+        <a href="{{ url_for('species.detail', species_id=a.species_id) }}"
+           style="text-decoration:none;">
+          <span class="badge badge-info">
+            <i class="fa-solid fa-fish-fins"></i> {{ a.species.common_name }}
+          </span>
+        </a>
+        {% endif %}
+        {% if a.tank_idc %}
+        <a href="{{ url_for('tanks.detail', tank_idc=a.tank_idc) }}"
+           style="text-decoration:none;">
+          <span class="badge badge-info">
+            <i class="fa-solid fa-water"></i> {{ a.tank_idc }}
+          </span>
+        </a>
+        {% endif %}
+        {% if not a.species_id and not a.tank_idc %}
+        <span class="badge" style="background:var(--bg-input); color:var(--text-muted);">
+          <i class="fa-solid fa-globe"></i> General
+        </span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Date -->
+    <div class="article-date">
+      <div style="text-align:right; margin-bottom:0.1rem; font-size:0.7rem; color:var(--text-muted);">Updated</div>
+      {% if a.updated_at %}
+        {{ a.updated_at.strftime('%d/%m/%Y') }}
+      {% elif a.created_at %}
+        {{ a.created_at.strftime('%d/%m/%Y') }}
+      {% else %}—{% endif %}
+    </div>
+
+    <!-- Actions -->
+    <div class="article-actions">
+      <a href="{{ url_for('articles.article_detail', article_id=a.id) }}"
+         class="btn btn-secondary btn-sm" title="Read">
+        <i class="fa-solid fa-eye"></i>
+      </a>
+      <a href="{{ url_for('articles.edit_article', article_id=a.id) }}"
+         class="btn btn-secondary btn-sm" title="Edit">
+        <i class="fa-solid fa-pen"></i>
+      </a>
+      <form method="POST"
+            action="{{ url_for('articles.delete_article', article_id=a.id) }}"
+            onsubmit="return confirm('Delete \'{{ a.title | replace("'", "\\'") }}\'? This cannot be undone.')">
+        <button type="submit" class="btn btn-danger btn-sm" title="Delete">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </form>
+    </div>
+
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <i class="fa-solid fa-book-open"></i>
+    <p style="margin-bottom:0.75rem;">No documentation articles yet.</p>
+    <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.25rem;">
+      Articles can be linked to a species or tank, or kept as general fish room notes.
+    </p>
+    <a href="{{ url_for('articles.new_article') }}" class="btn btn-primary">
+      <i class="fa-solid fa-plus"></i> Write Your First Article
+    </a>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

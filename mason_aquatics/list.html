@@ -1,0 +1,453 @@
+{% extends "base.html" %}
+{% block title %}Breeding Log — Mason Aquatics{% endblock %}
+
+{% block head %}
+<style>
+  /* ── Summary strip ──────────────────────────────────────────────── */
+  .breeding-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .bs-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.1rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .bs-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+    border-radius: 8px 8px 0 0;
+  }
+
+  .bs-card.green::after  { background: var(--success); }
+  .bs-card.amber::after  { background: var(--warning); }
+  .bs-card.red::after    { background: var(--danger); }
+
+  .bs-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+  }
+
+  .bs-value {
+    font-size: 1.9rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .bs-card.green .bs-value  { color: var(--success); }
+  .bs-card.amber .bs-value  { color: var(--warning); }
+  .bs-sub {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
+  }
+
+  /* ── Filter bar ─────────────────────────────────────────────────── */
+  .filter-bar {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: flex-end;
+  }
+
+  .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 140px;
+  }
+
+  .filter-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+
+  .filter-bar select,
+  .filter-bar input[type="text"],
+  .filter-bar input[type="search"] {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.42rem 0.65rem;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    outline: none;
+    font-family: inherit;
+  }
+
+  .filter-bar select:focus,
+  .filter-bar input:focus { border-color: var(--accent); }
+
+  .filter-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: auto;
+    align-items: flex-end;
+  }
+
+  /* ── Results bar ────────────────────────────────────────────────── */
+  .results-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .results-count { font-size: 0.82rem; color: var(--text-muted); }
+
+  .sort-bar {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    align-items: center;
+  }
+
+  .sort-link { color: var(--text-muted); text-decoration: none; }
+  .sort-link.active { color: var(--accent); font-weight: 700; }
+  .sort-link:hover  { color: var(--text-primary); }
+
+  /* ── Hatch rate bar ─────────────────────────────────────────────── */
+  .hatch-bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 110px;
+  }
+
+  .hatch-bar {
+    flex: 1;
+    height: 5px;
+    background: var(--bg-input);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .hatch-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s;
+  }
+
+  /* ── Best record callout ────────────────────────────────────────── */
+  .best-record-banner {
+    background: linear-gradient(135deg, rgba(63,185,80,0.08), rgba(63,185,80,0.03));
+    border: 1px solid rgba(63,185,80,0.3);
+    border-radius: 8px;
+    padding: 0.85rem 1.1rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .best-badge {
+    background: var(--success);
+    color: #fff;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.2rem 0.55rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  /* ── Empty state ────────────────────────────────────────────────── */
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-muted);
+  }
+
+  .empty-state i {
+    font-size: 3rem;
+    color: var(--border);
+    margin-bottom: 1rem;
+    display: block;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1><i class="fa-solid fa-egg" style="color:var(--accent)"></i> Breeding Log</h1>
+    <div class="breadcrumb">Records · All Breeding Events</div>
+  </div>
+  <a href="{{ url_for('breeding.add_record') }}" class="btn btn-primary">
+    <i class="fa-solid fa-plus"></i> Add Record
+  </a>
+</div>
+
+<!-- Summary strip -->
+<div class="breeding-summary">
+  <div class="bs-card">
+    <div class="bs-label">Total Events</div>
+    <div class="bs-value">{{ total_events }}</div>
+    <div class="bs-sub">breeding records</div>
+  </div>
+
+  <div class="bs-card">
+    <div class="bs-label">Total Eggs</div>
+    <div class="bs-value">{{ total_eggs }}</div>
+    <div class="bs-sub">laid / spawned</div>
+  </div>
+
+  <div class="bs-card green">
+    <div class="bs-label">Total Hatched</div>
+    <div class="bs-value">{{ total_hatched }}</div>
+    <div class="bs-sub">fry / juveniles</div>
+  </div>
+
+  <div class="bs-card {{ 'green' if overall_rate and overall_rate >= 70 else ('amber' if overall_rate and overall_rate >= 40 else 'red') if overall_rate else '' }}">
+    <div class="bs-label">Overall Hatch Rate</div>
+    <div class="bs-value">
+      {% if overall_rate is not none %}{{ overall_rate }}%{% else %}—{% endif %}
+    </div>
+    <div class="bs-sub">across filtered records</div>
+  </div>
+</div>
+
+<!-- Best record callout -->
+{% if best_record %}
+<div class="best-record-banner">
+  <span class="best-badge"><i class="fa-solid fa-trophy"></i> Best Result</span>
+  <span style="font-weight:600; color:var(--text-heading);">{{ best_record.species.common_name }}</span>
+  <span style="font-style:italic; color:var(--text-muted); font-size:0.85rem;">{{ best_record.species.scientific_name or '' }}</span>
+  <span style="color:var(--text-muted); font-size:0.82rem;">{{ best_record.record_date_display }}</span>
+  {% if best_record.tank_idc %}
+  <span class="badge badge-info">{{ best_record.tank_idc }}</span>
+  {% endif %}
+  <span style="margin-left:auto;">
+    <span class="badge badge-success" style="font-size:0.82rem; padding:0.3rem 0.7rem;">
+      {{ best_record.hatch_rate }}% hatch rate
+    </span>
+  </span>
+  {% if best_record.eggs_laid %}
+  <span style="font-size:0.82rem; color:var(--text-muted);">
+    {{ best_record.eggs_hatched }}/{{ best_record.eggs_laid }} eggs
+  </span>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Filter bar -->
+<form method="GET" action="{{ url_for('breeding.list_breeding') }}">
+  <div class="filter-bar">
+
+    <div class="filter-group" style="min-width:200px;">
+      <label class="filter-label">Species</label>
+      <select name="species_id">
+        <option value="">All Species</option>
+        {% for s in all_species %}
+        <option value="{{ s.id }}" {% if f_species == s.id | string %}selected{% endif %}>
+          {{ s.common_name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label class="filter-label">Tank</label>
+      <select name="tank_idc">
+        <option value="">All Tanks</option>
+        {% for t in used_tanks %}
+        <option value="{{ t }}" {% if f_tank == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+        {% for t in tank_choices %}
+          {% if t not in used_tanks %}
+          <option value="{{ t }}" {% if f_tank == t %}selected{% endif %}>{{ t }}</option>
+          {% endif %}
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label class="filter-label">From Date</label>
+      <input type="text" name="date_from" value="{{ f_from }}"
+             placeholder="DD/MM/YYYY" style="width:120px" />
+    </div>
+
+    <div class="filter-group">
+      <label class="filter-label">To Date</label>
+      <input type="text" name="date_to" value="{{ f_to }}"
+             placeholder="DD/MM/YYYY" style="width:120px" />
+    </div>
+
+    <input type="hidden" name="sort" value="{{ sort_by }}" />
+
+    <div class="filter-actions">
+      <button type="submit" class="btn btn-primary">
+        <i class="fa-solid fa-filter"></i> Filter
+      </button>
+      <a href="{{ url_for('breeding.list_breeding') }}" class="btn btn-secondary">
+        <i class="fa-solid fa-xmark"></i> Clear
+      </a>
+    </div>
+  </div>
+</form>
+
+<!-- Results bar + sort -->
+<div class="results-bar">
+  <span class="results-count">
+    {{ total_events }} record{{ 's' if total_events != 1 else '' }}
+    {% if f_species or f_tank or f_from or f_to %} (filtered){% endif %}
+  </span>
+  <div class="sort-bar">
+    Sort:
+    <a href="{{ url_for('breeding.list_breeding', species_id=f_species, tank_idc=f_tank, date_from=f_from, date_to=f_to, sort='date_desc') }}"
+       class="sort-link {% if sort_by == 'date_desc' %}active{% endif %}">Newest first</a>
+    <a href="{{ url_for('breeding.list_breeding', species_id=f_species, tank_idc=f_tank, date_from=f_from, date_to=f_to, sort='date_asc') }}"
+       class="sort-link {% if sort_by == 'date_asc' %}active{% endif %}">Oldest first</a>
+    <a href="{{ url_for('breeding.list_breeding', species_id=f_species, tank_idc=f_tank, date_from=f_from, date_to=f_to, sort='species') }}"
+       class="sort-link {% if sort_by == 'species' %}active{% endif %}">Species A–Z</a>
+    <a href="{{ url_for('breeding.list_breeding', species_id=f_species, tank_idc=f_tank, date_from=f_from, date_to=f_to, sort='hatch') }}"
+       class="sort-link {% if sort_by == 'hatch' %}active{% endif %}">Best hatch</a>
+  </div>
+</div>
+
+<!-- Records table -->
+{% if records %}
+<div class="card" style="padding:0; overflow:hidden;">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Species</th>
+          <th>Tank</th>
+          <th>Eggs Laid</th>
+          <th>Hatched</th>
+          <th style="min-width:140px">Hatch Rate</th>
+          <th>Notes</th>
+          <th style="width:100px">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in records %}
+        <tr>
+          <td style="white-space:nowrap; font-variant-numeric:tabular-nums;">
+            {{ r.record_date_display }}
+          </td>
+
+          <td>
+            <a href="{{ url_for('species.detail', species_id=r.species_id) }}"
+               style="font-weight:600; color:var(--text-heading); text-decoration:none;">
+              {{ r.species.common_name }}
+            </a>
+            {% if r.species.scientific_name %}
+            <div style="font-size:0.72rem; font-style:italic; color:var(--text-muted);">
+              {{ r.species.scientific_name }}
+            </div>
+            {% endif %}
+          </td>
+
+          <td>
+            {% if r.tank_idc %}
+            <a href="{{ url_for('tanks.detail', tank_idc=r.tank_idc) }}"
+               style="text-decoration:none;">
+              <span class="badge badge-info">{{ r.tank_idc }}</span>
+            </a>
+            {% else %}—{% endif %}
+          </td>
+
+          <td style="font-variant-numeric:tabular-nums;">
+            {{ r.eggs_laid if r.eggs_laid is not none else '—' }}
+          </td>
+
+          <td style="font-variant-numeric:tabular-nums;">
+            {% if r.eggs_hatched is not none %}
+            <strong style="color:var(--success)">{{ r.eggs_hatched }}</strong>
+            {% else %}—{% endif %}
+          </td>
+
+          <td>
+            {% if r.hatch_rate is not none %}
+            <div class="hatch-bar-wrap">
+              {% set rate = r.hatch_rate %}
+              {% set bar_colour = 'var(--success)' if rate >= 70 else ('var(--warning)' if rate >= 40 else 'var(--danger)') %}
+              <div class="hatch-bar">
+                <div class="hatch-bar-fill"
+                     style="width:{{ rate }}%; background:{{ bar_colour }};"></div>
+              </div>
+              <span class="badge {% if rate >= 70 %}badge-success{% elif rate >= 40 %}badge-warning{% else %}badge-danger{% endif %}"
+                    style="flex-shrink:0;">
+                {{ rate }}%
+              </span>
+            </div>
+            {% else %}
+            <span style="color:var(--text-muted); font-size:0.8rem;">—</span>
+            {% endif %}
+          </td>
+
+          <td style="font-size:0.8rem; color:var(--text-muted); max-width:200px;">
+            {{ r.notes or '' }}
+          </td>
+
+          <td>
+            <div style="display:flex; gap:0.35rem;">
+              <a href="{{ url_for('breeding.edit_record', record_id=r.id) }}"
+                 class="btn btn-secondary btn-sm" title="Edit">
+                <i class="fa-solid fa-pen"></i>
+              </a>
+              <form method="POST"
+                    action="{{ url_for('breeding.delete_record', record_id=r.id) }}"
+                    onsubmit="return confirm('Delete this breeding record?')">
+                <button type="submit" class="btn btn-danger btn-sm" title="Delete">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <i class="fa-solid fa-egg"></i>
+    {% if f_species or f_tank or f_from or f_to %}
+    <p>No records match your filters.</p>
+    <a href="{{ url_for('breeding.list_breeding') }}" class="btn btn-secondary">Clear Filters</a>
+    {% else %}
+    <p>No breeding records yet.</p>
+    <a href="{{ url_for('breeding.add_record') }}" class="btn btn-primary">
+      <i class="fa-solid fa-plus"></i> Add First Record
+    </a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

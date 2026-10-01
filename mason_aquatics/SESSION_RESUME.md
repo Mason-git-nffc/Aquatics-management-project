@@ -1,29 +1,151 @@
 # Mason Aquatics — Session Resume Guide
 
-## Current state (01/10/2026)
+## How to Resume This Project in a New Claude Session
 
-All 10 phases are built **and verified working**. A debug/stabilisation pass on
-01/10/2026 fixed every defect found by an automated end-to-end test sweep (see
-"Stabilisation pass" below). `python tests/run_tests.py` exercises every route
-against an isolated temp database — 262 checks, all passing.
+### Step 1 — Download These Files
+Save all output files from this session to your computer before closing.
 
-The GitHub repo `Mason-git-nffc/Aquatics-management-project` is the source of
-truth. Everything lives under `mason_aquatics/` in the organised layout
-(`routes/`, `templates/<area>/`, `static/vendor/`). The old flat duplicate files
-at the folder root have been removed — do not re-upload flat copies.
+### Step 2 — Start a New Claude Session
+Open a new conversation at claude.ai
 
-## How to resume in a new Claude session
+### Step 3 — Upload Your Files
+Upload the following at the start of your message:
+- `README.md`
+- `PHASE_PLAN.md`
+- `DATABASE_SCHEMA.md`
+- `SESSION_RESUME.md` (this file)
+- All `.py` and `.html` files built so far
 
-Attach the project (or the repo) and say what you want next. Suggested prompt:
+### Step 4 — Paste the Resume Prompt Below
+
+---
+
+## ✅ READY-TO-USE RESUME PROMPT — PHASE 10
+
+Copy and paste this exactly into your next session (after uploading files):
 
 ```
-Mason Aquatics fish room app — all 10 phases complete and tested.
-Repo: Mason-git-nffc/Aquatics-management-project (mason_aquatics/ folder).
-Read SESSION_RESUME.md first. Run `python tests/run_tests.py` before and after
-changes. Do not modify models.py. Keep UK conventions (£, DD/MM/YYYY), the
-dark/light CSS variable theme from base.html, and the Mason Aquatics branding.
+I am building the Mason Aquatics fish room management system.
 
-Next task: <describe it>
+Attached files:
+- README.md          — project overview and stack
+- PHASE_PLAN.md      — full 10-phase build plan
+- DATABASE_SCHEMA.md — all table definitions
+- SESSION_RESUME.md  — this resume guide
+- models.py          — all SQLAlchemy models (complete, do not modify)
+- app.py             — Flask app with all blueprints registered (Phases 1–9)
+- routes/main.py     — dashboard + theme toggle + GET/POST /settings
+- routes/species.py  — species CRUD, photo upload, wharf prices
+- routes/tanks.py    — tank list, detail, water tests, equipment, primer calc
+- routes/breeding.py — breeding CRUD, central log, inline add from species page
+- routes/sales.py    — sales CRUD, customer CRUD, store credit management
+- routes/gallery.py  — central gallery, grouped by species + flat view, filterable
+- routes/public.py   — public species page at /public/species/<id> (no auth)
+- routes/labels.py   — QR code PNG generator, single PDF label, batch PDF labels
+- routes/reports.py  — available list HTML preview + PDF download (ReportLab A4)
+- routes/costs.py    — cost dashboard, feed log CRUD, power cost CRUD
+- templates/base.html                       (all sidebar links live — Phases 1–9;
+                                             Settings footer btn → url_for('main.settings');
+                                             gear icon shortcut in topbar)
+- templates/dashboard.html
+- templates/settings.html                   ← NEW Phase 9
+- templates/species/list.html
+- templates/species/form.html
+- templates/species/detail.html
+- templates/tanks/list.html
+- templates/tanks/detail.html
+- templates/tanks/edit.html
+- templates/breeding/list.html
+- templates/breeding/form.html
+- templates/sales/list.html
+- templates/sales/form.html
+- templates/sales/customer_list.html
+- templates/sales/customer_detail.html
+- templates/sales/customer_form.html
+- templates/gallery/index.html
+- templates/public/species.html
+- templates/labels/index.html
+- templates/reports/available_list.html
+- templates/costs/dashboard.html
+- templates/costs/feed_log.html
+- templates/costs/power.html
+
+Phases completed: 1 (Foundation), 2 (Tank Management), 3 (Breeding Records),
+4 (Sales System), 5 (Gallery System), 6 (QR Codes & Labels),
+7 (Reports & Available List PDF), 8 (Cost Controls), 9 (Settings Page).
+
+Phase 9 delivered:
+- routes/main.py — updated main_bp with two new endpoints:
+    GET  /settings  → renders templates/settings.html
+    POST /settings  → validates + saves theme, accent_colour, font_size to
+                      AppSettings (id=1), flashes success, redirects back
+    POST /settings/theme already existed — kept unchanged (topbar quick toggle)
+- templates/settings.html — full settings page extending base.html:
+    * Theme section: Dark / Light visual preview cards with radio buttons;
+      selecting applies theme live to the page AND pings /settings/theme
+      so the topbar toggle stays in sync
+    * Accent Colour section: 8 preset swatches (Blue, Emerald, Purple, Amber,
+      Red, Pink, Teal, Indigo) + <input type="color"> custom picker;
+      either updates CSS --accent live; selected swatch shows checkmark ring
+    * Font Size section: four buttons (Small / Medium / Large / XL);
+      clicking previews the size live via document.documentElement.style.fontSize
+    * Sticky save bar at bottom with Cancel + Save Settings buttons
+    * Side nav links scroll to each section smoothly
+- templates/base.html — updated:
+    * Sidebar footer Settings button: href → url_for('main.settings'),
+      gains .active class (blue ring + tinted bg) when on settings page
+    * Gear icon shortcut added to topbar actions row alongside theme toggle,
+      also with active state when request.endpoint == 'main.settings'
+    * --accent and --font-size-base :root vars now guard against None values
+
+Please continue with Phase 10 — Documentation Pages:
+
+Phase 10 should deliver:
+- models.py already has an Article model with fields:
+    id, title, content_html, species_id (nullable FK → species),
+    tank_idc (nullable), created_at, updated_at
+  Do not modify models.py — the model is already complete.
+- routes/articles.py — new blueprint at /articles:
+    GET  /articles/                        → list all articles
+    GET  /articles/new                     → blank editor form
+    GET  /articles/new?species_id=<id>     → pre-linked to species
+    GET  /articles/new?tank_idc=<idc>      → pre-linked to tank
+    POST /articles/new                     → save new article → redirect to detail
+    GET  /articles/<id>                    → read-only article view (rendered HTML)
+    GET  /articles/<id>/edit               → editor form pre-filled
+    POST /articles/<id>/edit               → save edits → redirect to detail
+    POST /articles/<id>/delete             → delete → redirect to list
+- templates/articles/list.html   — article index: title, linked species/tank, date, actions
+- templates/articles/form.html   — create/edit form using Quill.js rich text editor (CDN):
+    * Title input
+    * Link to Species dropdown (optional — all species, populated from DB)
+    * Link to Tank dropdown (optional — T#01–T#30)
+    * Quill editor for content_html (toolbar: bold, italic, headings, lists,
+      blockquote, link, code block, clean)
+    * Save and Cancel buttons
+- templates/articles/detail.html — clean read-only rendered article view:
+    * Article title as <h1>
+    * Linked species name (with link to species detail) if set
+    * Linked tank IDC (with link to tank detail) if set
+    * Rendered content_html in a styled content area
+    * Edit and Delete buttons
+    * "Back to list" breadcrumb
+- templates/species/detail.html — updated: add a "Further Information" button/section
+  that links to the article if species.article_id is set, or shows
+  "Add Documentation" linking to /articles/new?species_id=<id> if not
+- templates/tanks/detail.html   — same pattern: "Documentation" section linking to
+  the article or offering to create one via /articles/new?tank_idc=<idc>
+- app.py — register articles blueprint at /articles
+- base.html — add "Documentation" nav link under Reports section pointing to
+  url_for('articles.list_articles') with active state when request.blueprint == 'articles'
+
+Stack: SQLite + Python Flask + HTML/CSS/JS + Quill.js (CDN, free).
+Brand everything as "Mason Aquatics".
+Keep the same dark/light CSS variable theme from base.html.
+Do not rewrite models.py or DATABASE_SCHEMA.md — they are complete.
+Use Quill.js from CDN: https://cdn.quilljs.com/1.3.7/quill.min.js
+                  CSS: https://cdn.quilljs.com/1.3.7/quill.snow.css
+The Article model already exists in models.py — import it from there.
 ```
 
 ---
@@ -181,89 +303,72 @@ Next task: <describe it>
   - Gear icon shortcut added to topbar alongside the theme toggle button
   - base.html :root now guards --accent and --font-size-base against None/missing values
 
-
 ### Phase 10 — Documentation Pages
-- Status: ✅ Complete
-- Files produced:
-  - `routes/articles.py` — blueprint at /articles (list, new, detail, edit, delete)
-  - `templates/articles/list.html`, `form.html`, `detail.html`
-  - `routes/tanks.py` + `templates/tanks/detail.html` — linked articles section
-  - `templates/species/detail.html` — linked articles section
-- Key decisions:
-  - Quill.js rich-text editor; HTML stored in `Article.content_html`
-  - Articles optionally linked to a species and/or a tank; "new" accepts
-    `?species_id=` / `?tank_idc=` to pre-fill the link
-
-### Stabilisation pass — 01/10/2026
-Automated sweep (every route, real data, blank/junk input, headless Chromium for JS)
-found and fixed:
-- **Species add/edit page and customer add/edit page crashed (500)** — invalid Jinja
-  escaping in delete-confirm `onsubmit`. All confirm/JS strings now use `| tojson`
-  inside single-quoted attributes (also fixed in articles list/detail, customer detail).
-- **Gallery always empty** — route passed `grouped_list`/`photos`, template expects
-  `groups`/`photos_flat`/`selected_species`. `routes/gallery.py` rewritten to match.
-- **Gallery lightbox + species delete button broke on names with apostrophes**
-  (e.g. "Kribensis O'Neil") — JS string built by hand; now `| tojson`.
-- **Deleting a species with breeding records crashed** (NOT NULL FK). Breeding records
-  are now deleted with the species; sales/articles are kept and unlinked. Its QR PNG is removed.
-- **Species detail crashed** if any breeding record had blank eggs laid/hatched.
-- **Charts, rich-text editor and icons failed without internet** — Chart.js 4.4.1,
-  Quill 1.3.7 and Font Awesome 6.5.2 are now vendored in `static/vendor/` (works offline / on the Pi).
-  Google Fonts (Inter) still loads from the web and falls back to system fonts.
-- **Theme chosen on the Settings page reverted** — a stale `localStorage` value overrode
-  the DB. The DB is now the source of truth; localStorage just mirrors it.
-- **Topbar search box did nothing** — now searches species, tanks, customers and
-  articles (`GET /search?q=`, `templates/search.html`).
-- Label PDF showed a missing-glyph box before the temperature and truncated 24.5 °C to 24.
-- Batch label PDF could start with a blank page when an ID was missing; junk IDs in
-  filters (`?species_id=abc`) no longer 500.
-- `app.py`: debug mode is **off by default** (Werkzeug debugger on 0.0.0.0 = remote code
-  execution for anyone on the LAN). Enable with `MASON_DEBUG=1`. Secret key from
-  `MASON_SECRET_KEY`, port from `MASON_PORT`. Startup message is ASCII (Windows console safe).
-  `create_app(test_config)` accepts overrides for tests.
-- Added `requirements.txt`, `.gitignore`, `tests/run_tests.py`.
-- `Install-MasonAquaticsNEw.ps1` now copies `routes/`, `templates/` and `static/vendor/`
-  recursively (it previously used a hard-coded file list that would have missed new files).
-  The old root `Install-MasonAquatics.ps1` (which installed stale flat files) was removed.
-
-Known, deliberately not changed (models.py is frozen):
-- `BreedingRecord.hatch_rate` returns `None` (shown as "—") when 0 eggs hatched, rather than 0%.
-- `Model.query.get()` is SQLAlchemy-legacy and emits deprecation warnings; still works on SQLAlchemy 2.x.
+- Status: ⬜ Not Started
 
 ---
 
-## File Tree
+## File Tree (current state after Phase 9)
 
 ```
 mason_aquatics/
-├── INSTALL.md                    ← Windows install guide
-├── Install-MasonAquaticsNEw.ps1  ← Windows installer (safe to re-run as an upgrade)
+├── README.md
+├── PHASE_PLAN.md
+├── DATABASE_SCHEMA.md
 ├── SESSION_RESUME.md
 ├── requirements.txt
-├── app.py                        ← all blueprints registered
-├── models.py                     ← complete — do not modify
+├── app.py                          ← Phases 1–9 all registered
+├── models.py                       ← All SQLAlchemy models (complete, do not modify)
 ├── routes/
-│   ├── main.py      ← dashboard, settings, theme toggle, global search
-│   ├── species.py   ← species CRUD, photos, wharf prices
-│   ├── tanks.py     ← tanks, water tests, equipment, chart data
-│   ├── breeding.py  ← breeding CRUD + central log
-│   ├── sales.py     ← sales + customers + store credit
-│   ├── gallery.py   ← central gallery
-│   ├── public.py    ← public species page (no auth, QR target)
-│   ├── labels.py    ← QR PNG, label PDF, batch label PDF
-│   ├── reports.py   ← available stock list (HTML preview + PDF)
-│   ├── costs.py     ← cost dashboard, feed log, power costs
-│   └── articles.py  ← documentation pages (Quill)
+│   ├── __init__.py
+│   ├── main.py                     ← Dashboard, theme toggle, GET+POST /settings ← UPDATED Phase 9
+│   ├── species.py                  ← Species CRUD, photos, wharf prices
+│   ├── tanks.py                    ← Tanks, water tests, equipment
+│   ├── breeding.py                 ← Breeding CRUD
+│   ├── sales.py                    ← Sales + Customer CRUD
+│   ├── gallery.py                  ← Central gallery
+│   ├── public.py                   ← Public species pages (no auth)
+│   ├── labels.py                   ← QR codes + PDF labels
+│   ├── reports.py                  ← Available list HTML preview + PDF
+│   └── costs.py                    ← Feed log + Power costs + Dashboard
 ├── templates/
-│   ├── base.html, dashboard.html, settings.html, search.html
-│   ├── species/ tanks/ breeding/ sales/ gallery/ public/
-│   ├── labels/ reports/ costs/ articles/
+│   ├── base.html                   ← Settings link live, gear in topbar ← UPDATED Phase 9
+│   ├── dashboard.html
+│   ├── settings.html               ← NEW Phase 9
+│   ├── species/
+│   │   ├── list.html
+│   │   ├── form.html
+│   │   └── detail.html
+│   ├── tanks/
+│   │   ├── list.html
+│   │   ├── detail.html
+│   │   └── edit.html
+│   ├── breeding/
+│   │   ├── list.html
+│   │   └── form.html
+│   ├── sales/
+│   │   ├── list.html
+│   │   ├── form.html
+│   │   ├── customer_list.html
+│   │   ├── customer_detail.html
+│   │   └── customer_form.html
+│   ├── gallery/
+│   │   └── index.html
+│   ├── public/
+│   │   └── species.html
+│   ├── labels/
+│   │   └── index.html
+│   ├── reports/
+│   │   └── available_list.html
+│   └── costs/
+│       ├── dashboard.html
+│       ├── feed_log.html
+│       └── power.html
 ├── static/
-│   ├── vendor/      ← Chart.js, Quill, Font Awesome (committed)
-│   ├── uploads/photos/   (runtime, git-ignored)
-│   └── generated/        (runtime, git-ignored)
-├── tests/run_tests.py
-└── instance/mason_aquatics.db    (runtime, git-ignored)
+│   ├── uploads/photos/             ← Uploaded fish photos
+│   └── generated/                  ← QR PNGs + label PDFs written here
+└── instance/
+    └── mason_aquatics.db
 ```
 
 ---
@@ -272,59 +377,66 @@ mason_aquatics/
 
 ```bash
 pip install -r requirements.txt
-python app.py                 # http://localhost:5000
-MASON_DEBUG=1 python app.py   # development only — never on a shared network
+python app.py
 ```
 
-The database is created automatically on first run, with T#01–T#30 and the AppSettings row seeded.
+Open: `http://localhost:5000`
 
-## Testing
-
-```bash
-python tests/run_tests.py      # add -v for every check
-```
-Uses a throwaway temp DB and upload folder — safe to run on a live install.
+The database is created automatically on first run. All 30 tanks (T#01–T#30) and a default AppSettings row are seeded automatically.
 
 ---
 
 ## Blueprint URL Reference
 
-| Blueprint  | Prefix      | Key routes                                                                       |
-|------------|-------------|----------------------------------------------------------------------------------|
-| `main`     | `/`         | `GET /` dashboard, `GET/POST /settings`, `POST /settings/theme`, `GET /search?q=` |
-| `species`  | `/species`  | `/`, `/add`, `/<id>`, `/<id>/edit`, `/<id>/delete`                               |
-| `species`  | `/species`  | `/<id>/photos/upload`, `/photos/<id>/delete`                                     |
-| `tanks`    | `/tanks`    | `/`, `/<idc>`, `/<idc>/edit`, `/<idc>/chart-data` (JSON)                         |
-| `tanks`    | `/tanks`    | `/<idc>/test/add`, `/test/<id>/delete`, `/<idc>/equipment/add`, `/equipment/<id>/delete` |
-| `breeding` | `/breeding` | `/`, `/add`, `/add/<species_id>`, `/<id>/edit`, `/<id>/delete`                   |
-| `sales`    | `/sales`    | `/`, `/add`, `/add/<species_id>`, `/<id>/edit`, `/<id>/delete`                   |
-| `sales`    | `/sales`    | `/customers`, `/customers/add`, `/customers/<id>`, `/customers/<id>/edit`, `/customers/<id>/delete`, `/customers/<id>/add-credit` |
-| `gallery`  | `/gallery`  | `/` (view=grouped\|all, species_id filter)                                       |
-| `public`   | `/public`   | `/species/<id>` — no auth, QR-linked                                             |
-| `labels`   | `/labels`   | `/`, `/qr/<id>` PNG, `/label/<id>` PDF (fn: generate_label), `/label/batch` POST |
-| `reports`  | `/reports`  | `GET/POST /available-list`, `POST /available-list/pdf`                           |
-| `costs`    | `/costs`    | `/`, `/feed`, `/feed/add`, `/feed/<id>/delete`, `/power`, `/power/add`, `/power/<id>/delete` |
-| `articles` | `/articles` | `/`, `/new`, `/<id>`, `/<id>/edit`, `/<id>/delete`                               |
+| Blueprint    | Prefix       | Key routes                                                                        |
+|--------------|--------------|-----------------------------------------------------------------------------------|
+| `main`       | `/`          | `GET /` dashboard                                                                 |
+| `main`       | `/`          | `GET /settings`, `POST /settings`                                                 |
+| `main`       | `/`          | `POST /settings/theme` (quick topbar toggle)                                      |
+| `species`    | `/species`   | `/`, `/add`, `/<id>`, `/<id>/edit`, `/<id>/delete`                                |
+| `species`    | `/species`   | `/<id>/photos/upload`, `/photos/<id>/delete`                                      |
+| `tanks`      | `/tanks`     | `/`, `/<idc>`, `/<idc>/edit`                                                      |
+| `tanks`      | `/tanks`     | `/<idc>/test/add`, `/test/<id>/delete`                                            |
+| `tanks`      | `/tanks`     | `/<idc>/equipment/add`, `/equipment/<id>/delete`                                  |
+| `tanks`      | `/tanks`     | `/<idc>/chart-data` (JSON)                                                        |
+| `breeding`   | `/breeding`  | `/`, `/add`, `/add/<species_id>`, `/<id>/edit`, `/<id>/delete`                    |
+| `sales`      | `/sales`     | `/`, `/add`, `/add/<species_id>`, `/<id>/edit`, `/<id>/delete`                    |
+| `sales`      | `/sales`     | `/customers`, `/customers/<id>`, `/customers/add`                                 |
+| `sales`      | `/sales`     | `/customers/<id>/edit`, `/customers/<id>/delete`, `/customers/<id>/add-credit`    |
+| `gallery`    | `/gallery`   | `/` (view=grouped\|all, species_id filter)                                        |
+| `public`     | `/public`    | `/species/<id>` — no auth, QR-linked                                              |
+| `labels`     | `/labels`    | `/`, `/qr/<id>` PNG, `/label/<id>` PDF (fn: generate_label), `/label/batch` POST |
+| `reports`    | `/reports`   | `GET /available-list`, `POST /available-list/pdf`                                 |
+| `costs`      | `/costs`     | `/` dashboard, `/feed`, `/feed/add`, `/feed/<id>/delete`                          |
+| `costs`      | `/costs`     | `/power`, `/power/add`, `/power/<id>/delete`                                      |
 
 ---
 
-## Conventions & gotchas
+## Known Notes
 
-- Any value interpolated into inline JS or an `onclick`/`onsubmit` attribute must use
-  `{{ value | tojson }}` inside a **single-quoted** attribute. Never hand-escape quotes.
-- When a route and template disagree on variable names, Jinja renders nothing silently —
-  check `render_template(...)` kwargs against the template when something is blank.
-- Front-end libraries are local (`static/vendor/`). Don't reintroduce CDN links.
-- `FeedLog.feed_date` has no `_display` property — templates use `f.feed_date`.
-- `AppSettings` (id=1) holds theme / accent_colour / font_size, injected as `settings`.
+- The labels blueprint route for single-label PDF is named `generate_label` — any template
+  link must use `url_for('labels.generate_label', species_id=id)`.
+- The `FeedLog.feed_date` field stores ISO date strings. Templates display it directly;
+  no `feed_date_display` property exists on the model — use `f.feed_date` in templates.
+- `AppSettings` (id=1) holds `theme`, `accent_colour`, and `font_size` — all three are
+  injected into every template via the `settings` context processor variable in app.py.
+- `base.html` `:root` now uses fallback defaults for both `--accent` and `--font-size-base`
+  to prevent rendering errors if AppSettings is missing or fields are null.
+- The `Article` model already exists in `models.py` and is ready for Phase 10 — do not
+  modify models.py. Fields: id, title, content_html, species_id, tank_idc, created_at, updated_at.
+
+---
 
 ## Deployment Notes
 
-| Option        | Notes                                                    |
-|---------------|----------------------------------------------------------|
-| Windows PC    | `Install-MasonAquaticsNEw.ps1` — see INSTALL.md          |
-| Raspberry Pi  | systemd service on port 5000, LAN access                  |
-| Cloud hosts   | PythonAnywhere / Render / Railway free tiers will run it |
+| Option         | Cost      | Notes                                            |
+|----------------|-----------|--------------------------------------------------|
+| Local (PC/Pi)  | Free      | Best for home fish room, always on your network  |
+| PythonAnywhere | Free tier | Hosts Flask apps, 512MB storage                  |
+| Render.com     | Free tier | Auto-deploy from GitHub                          |
+| Railway.app    | Free tier | Simple Flask deployment                          |
 
-QR codes encode `request.host_url`, so print labels from the address customers will
-actually reach (e.g. `http://mason-aquatics.local:5000`), not `localhost`.
+**Important for QR codes on deployed apps:** The QR code encodes the full URL using
+`request.host_url`, so it will automatically use whatever domain the app is running on.
+For local use this will be `http://localhost:5000/public/species/<id>`.
+If deploying, the QR codes will encode the correct public URL automatically.
