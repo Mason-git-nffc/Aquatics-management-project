@@ -5,19 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}Mason Aquatics{% endblock %}</title>
 
-  <!-- Font Awesome -->
+  <!-- Font Awesome (vendored locally so the app works offline / on the Pi) -->
   <link rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
-        crossorigin="anonymous" />
+        href="{{ url_for('static', filename='vendor/fontawesome/css/all.min.css') }}" />
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital@1&display=swap"
         rel="stylesheet" />
 
-  <!-- Chart.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"
-          crossorigin="anonymous"></script>
+  <!-- Chart.js (vendored locally) -->
+  <script src="{{ url_for('static', filename='vendor/chartjs/chart.umd.min.js') }}"></script>
 
   <style>
     :root {
@@ -446,10 +444,11 @@
   <!-- Main -->
   <div class="main-content">
     <div class="topbar">
-      <div class="topbar-search">
+      <form class="topbar-search" method="GET" action="{{ url_for('main.search') }}" role="search">
         <i class="fa-solid fa-magnifying-glass search-icon"></i>
-        <input type="search" placeholder="Search species, tanks, customers…" />
-      </div>
+        <input type="search" name="q" placeholder="Search species, tanks, customers…"
+               value="{{ request.args.get('q', '') if request.endpoint == 'main.search' else '' }}" />
+      </form>
       <div class="topbar-actions">
         <!-- Quick theme toggle -->
         <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light / dark theme">
@@ -484,18 +483,22 @@
     const current = html.getAttribute('data-theme');
     const next    = current === 'dark' ? 'light' : 'dark';
     html.setAttribute('data-theme', next);
-    localStorage.setItem('ma_theme', next);
-    fetch('/settings/theme', {
+    try { localStorage.setItem('ma_theme', next); } catch (e) {}
+    fetch('{{ url_for("main.toggle_theme") }}', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ theme: next }),
     });
   }
 
-  // Apply saved theme from localStorage immediately (before first paint)
+  // The database (AppSettings) is the source of truth for the theme — the
+  // server already renders it into <html data-theme>. Mirror it into
+  // localStorage so a stale browser value can never override a theme saved
+  // from the Settings page or another device.
   (function () {
-    const saved = localStorage.getItem('ma_theme');
-    if (saved) document.documentElement.setAttribute('data-theme', saved);
+    try {
+      localStorage.setItem('ma_theme', document.documentElement.getAttribute('data-theme'));
+    } catch (e) {}
   })();
 </script>
 

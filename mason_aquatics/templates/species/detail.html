@@ -435,7 +435,7 @@
         <i class="fa-solid fa-egg"></i> Add Breeding Record
       </a>
       <button class="btn btn-danger btn-sm"
-              onclick="confirmDelete({{ species.id }}, '{{ species.common_name | replace("'","\\'")}}')"
+              onclick='confirmDelete({{ species.id }}, {{ species.common_name | tojson }})'
               style="margin-left:auto">
         <i class="fa-solid fa-trash"></i> Delete
       </button>
@@ -736,8 +736,8 @@
   </div>
 
   <!-- Summary stats -->
-  {% set total_eggs    = species.breeding_records | sum(attribute='eggs_laid') or 0 %}
-  {% set total_hatched = species.breeding_records | sum(attribute='eggs_hatched') or 0 %}
+  {% set total_eggs    = species.breeding_records | map(attribute='eggs_laid') | reject('none') | sum %}
+  {% set total_hatched = species.breeding_records | map(attribute='eggs_hatched') | reject('none') | sum %}
 
   <!-- Best tank by hatch rate -->
   {% set tank_stats = {} %}

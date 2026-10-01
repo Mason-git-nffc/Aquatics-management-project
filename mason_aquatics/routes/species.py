@@ -228,6 +228,18 @@ def delete_species(species_id):
             except OSError:
                 pass
 
+    # Breeding records require a species (NOT NULL FK), so they go with it.
+    # Sales and articles have nullable species_id and are kept (unlinked).
+    for record in list(species.breeding_records):
+        db.session.delete(record)
+
+    qr_path = os.path.join(current_app.config['GENERATED_FOLDER'], f'qr_{species_id}.png')
+    if os.path.exists(qr_path):
+        try:
+            os.remove(qr_path)
+        except OSError:
+            pass
+
     db.session.delete(species)
     db.session.commit()
     flash(f'{name} deleted.', 'success')

@@ -131,7 +131,7 @@
     {% if is_edit %}
     <form method="POST"
           action="{{ url_for('sales.delete_customer', customer_id=customer.id) }}"
-          onsubmit="return confirm('Delete {{ customer.name | replace(\"'\", \"\\'\") }}? Their sales will be kept with no customer assigned.')"
+          onsubmit='return confirm({{ ("Delete " ~ customer.name ~ "? Their sales will be kept with no customer assigned.") | tojson }})'
           style="margin-right:auto;">
       <button type="submit" class="btn btn-danger btn-sm">
         <i class="fa-solid fa-trash"></i> Delete Customer

@@ -53,9 +53,9 @@ def list_sales():
 
     query = Sales.query
 
-    if f_species:
+    if f_species.isdigit():
         query = query.filter(Sales.species_id == int(f_species))
-    if f_customer:
+    if f_customer.isdigit():
         query = query.filter(Sales.customer_id == int(f_customer))
     if f_payment:
         query = query.filter(Sales.payment_type == f_payment)

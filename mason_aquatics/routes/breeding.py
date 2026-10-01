@@ -58,7 +58,7 @@ def list_breeding():
 
     query = BreedingRecord.query
 
-    if f_species:
+    if f_species.isdigit():
         query = query.filter(BreedingRecord.species_id == int(f_species))
     if f_tank:
         query = query.filter(BreedingRecord.tank_idc == f_tank)

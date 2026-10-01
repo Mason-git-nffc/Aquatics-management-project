@@ -6,13 +6,14 @@ GET  /           → dashboard
 POST /settings/theme  → quick theme toggle (called from topbar button, keep unchanged)
 GET  /settings   → settings page
 POST /settings   → save accent_colour, font_size, theme → redirect back
+GET  /search?q=  → global search (species, tanks, customers, articles)
 """
 
 from flask import (
     Blueprint, render_template, request,
     redirect, url_for, flash, jsonify
 )
-from models import db, AppSettings, Species, Tank, BreedingRecord
+from models import db, AppSettings, Species, Tank, BreedingRecord, Customer, Article
 from datetime import date
 from collections import defaultdict
 
@@ -125,3 +126,33 @@ def save_settings():
     db.session.commit()
     flash('Settings saved successfully.', 'success')
     return redirect(url_for('main.settings'))
+
+
+# ── Global search (topbar) ────────────────────────────────────────────────────
+
+@main_bp.route('/search')
+def search():
+    q = request.args.get('q', '').strip()
+    results = dict(species=[], tanks=[], customers=[], articles=[])
+    if q:
+        like = f'%{q}%'
+        results['species'] = (Species.query
+            .filter(db.or_(Species.common_name.ilike(like),
+                           Species.scientific_name.ilike(like),
+                           Species.native_to.ilike(like)))
+            .order_by(Species.common_name).all())
+        results['tanks'] = (Tank.query
+            .filter(db.or_(Tank.tank_idc.ilike(like),
+                           Tank.location.ilike(like),
+                           Tank.notes.ilike(like)))
+            .order_by(Tank.tank_idc).all())
+        results['customers'] = (Customer.query
+            .filter(db.or_(Customer.name.ilike(like),
+                           Customer.phone.ilike(like),
+                           Customer.email.ilike(like)))
+            .order_by(Customer.name).all())
+        results['articles'] = (Article.query
+            .filter(Article.title.ilike(like))
+            .order_by(Article.updated_at.desc()).all())
+    total = sum(len(v) for v in results.values())
+    return render_template('search.html', q=q, results=results, total=total)

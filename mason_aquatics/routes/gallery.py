@@ -1,11 +1,18 @@
 """
 Mason Aquatics — Central Gallery Routes
 Place this file at: routes/gallery.py
+
+Template contract (templates/gallery/index.html):
+    groups           list of (Species, [Photo, ...])   — grouped view
+    photos_flat      list of {'photo': Photo, 'species': Species} — flat view
+    all_species      species that have at least one photo (filter dropdown)
+    selected_species species id as a string ('' when unfiltered)
+    view_mode        'grouped' | 'all'
+    total_photos     int
 """
 
 from flask import Blueprint, render_template, request
 from models import Photo, Species
-from collections import defaultdict
 
 gallery_bp = Blueprint('gallery', __name__)
 
@@ -13,52 +20,57 @@ gallery_bp = Blueprint('gallery', __name__)
 @gallery_bp.route('/')
 def index():
     """Central photo gallery, browseable and filterable by species."""
-    f_species = request.args.get('species_id', '')
-    view_mode = request.args.get('view', 'grouped')   # 'grouped' | 'all'
+    selected_species = request.args.get('species_id', '').strip()
+    view_mode        = request.args.get('view', 'grouped')
+    if view_mode not in ('grouped', 'all'):
+        view_mode = 'grouped'
 
-    # Base query
     query = Photo.query.join(Species, Photo.species_id == Species.id)
 
-    if f_species:
-        query = query.filter(Photo.species_id == int(f_species))
-        view_mode = 'all'   # when filtering to one species, show flat grid
+    if selected_species:
+        try:
+            query = query.filter(Photo.species_id == int(selected_species))
+        except ValueError:
+            selected_species = ''
 
-    photos = query.order_by(Photo.upload_date.desc()).all()
+    # Primary photos first, then newest first
+    photos = (
+        query.order_by(Species.common_name,
+                       Photo.is_primary.desc(),
+                       Photo.upload_date.desc(),
+                       Photo.id.desc())
+        .all()
+    )
 
-    # All species that have at least one photo (for filter dropdown)
-    species_with_photos_ids = set(p.species_id for p in Photo.query.all())
+    # Grouped view — photos per species, ordered by common name
+    groups, index_by_species = [], {}
+    for p in photos:
+        if p.species_id not in index_by_species:
+            index_by_species[p.species_id] = len(groups)
+            groups.append((p.species, []))
+        groups[index_by_species[p.species_id]][1].append(p)
+
+    # Flat view — newest first across all species
+    photos_flat = [
+        {'photo': p, 'species': p.species}
+        for p in sorted(photos, key=lambda p: (p.upload_date or '', p.id), reverse=True)
+    ]
+
+    # Dropdown: species with at least one photo
     all_species = (
         Species.query
-        .filter(Species.id.in_(species_with_photos_ids))
+        .join(Photo, Photo.species_id == Species.id)
+        .distinct()
         .order_by(Species.common_name)
         .all()
-    ) if species_with_photos_ids else []
-
-    # All species for "no filter" dropdown too
-    all_species_full = Species.query.order_by(Species.common_name).all()
-
-    # Grouped view — photos per species
-    grouped = defaultdict(list)
-    for p in photos:
-        grouped[p.species_id].append(p)
-
-    # Order groups by species common name
-    grouped_list = []
-    for s in (all_species if f_species == '' else []):
-        if s.id in grouped:
-            grouped_list.append((s, grouped[s.id]))
-
-    # Stats
-    total_photos   = Photo.query.count()
-    total_species_with_photos = len(species_with_photos_ids)
+    )
 
     return render_template(
         'gallery/index.html',
-        photos=photos,
-        all_species=all_species_full,
-        f_species=f_species,
-        view_mode=view_mode,
-        grouped_list=grouped_list,
-        total_photos=total_photos,
-        total_species_with_photos=total_species_with_photos,
+        groups           = groups,
+        photos_flat      = photos_flat,
+        all_species      = all_species,
+        selected_species = selected_species,
+        view_mode        = view_mode,
+        total_photos     = Photo.query.count(),
     )

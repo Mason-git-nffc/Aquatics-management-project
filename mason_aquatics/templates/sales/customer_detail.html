@@ -79,7 +79,7 @@
     <div style="margin-top:1rem; padding-top:0.75rem; border-top:1px solid var(--border);">
       <form method="POST"
             action="{{ url_for('sales.delete_customer', customer_id=customer.id) }}"
-            onsubmit="return confirm('Delete {{ customer.name | replace(\"'\", \"\\'\") }}? Their sales will remain but with no customer assigned.')">
+            onsubmit='return confirm({{ ("Delete " ~ customer.name ~ "? Their sales will remain but with no customer assigned.") | tojson }})'>
         <button type="submit" class="btn btn-danger btn-sm">
           <i class="fa-solid fa-trash"></i> Delete Customer
         </button>

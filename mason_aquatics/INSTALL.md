@@ -171,11 +171,28 @@ The firewall rule created by the installer allows inbound connections on port
 When new files are pushed to the GitHub repository:
 
 1. Download the updated files (re-clone or download ZIP as in Step 1)
-2. Copy the updated files from `mason_aquatics\` into `C:\MasonAquatics\`
-   maintaining the same folder structure
-3. Re-run the installer **OR** manually copy only the changed files
+2. Re-run `Install-MasonAquaticsNEw.ps1` as Administrator from the new
+   `mason_aquatics\` folder. It copies `app.py`, `models.py`, `routes\`,
+   `templates\` and `static\vendor\` over the top of `C:\MasonAquatics\`.
 
-The database is not touched by updates — your data is safe.
+The database (`instance\`) and your photos (`static\uploads\`) are never
+touched by the installer — your data is safe. Back up `instance\mason_aquatics.db`
+first anyway.
+
+To check an install is healthy, open a command prompt in `C:\MasonAquatics\` and run:
+
+```
+.venv\Scripts\python.exe tests\run_tests.py
+```
+
+(It uses a temporary database, not your real one.)
+
+### Printing QR labels
+
+The QR code on each label points at whatever address you are using when you
+generate it. Open the app via your PC's network name or IP
+(e.g. `http://192.168.1.50:5000`) — **not** `localhost` — before printing labels,
+otherwise customers' phones will try to open their own device.
 
 ---
 

@@ -227,7 +227,7 @@
       </a>
       <form method="POST"
             action="{{ url_for('articles.delete_article', article_id=a.id) }}"
-            onsubmit="return confirm('Delete \'{{ a.title | replace("'", "\\'") }}\'? This cannot be undone.')">
+            onsubmit='return confirm({{ ("Delete \u201c" ~ a.title ~ "\u201d? This cannot be undone.") | tojson }})'>
         <button type="submit" class="btn btn-danger btn-sm" title="Delete">
           <i class="fa-solid fa-trash"></i>
         </button>

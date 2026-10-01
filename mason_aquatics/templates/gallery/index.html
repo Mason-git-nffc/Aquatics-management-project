@@ -310,7 +310,7 @@
       <div class="photo-grid">
         {% for photo in photos %}
         <div class="photo-thumb"
-             onclick="openLightbox({{ loop.index0 }}, '{{ species.common_name }}', galleryData['s{{ species.id }}'])"
+             onclick='openLightbox({{ loop.index0 }}, {{ species.common_name | tojson }}, galleryData["s{{ species.id }}"])'
              data-species="{{ species.id }}"
              data-index="{{ loop.index0 }}">
           <img src="{{ url_for('static', filename='uploads/photos/' ~ photo.filename) }}"

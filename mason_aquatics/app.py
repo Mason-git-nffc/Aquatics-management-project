@@ -30,12 +30,13 @@ PAYMENT_TYPE_CHOICES = ['Cash', 'Store Credit']
 EQUIPMENT_TYPE_CHOICES = ['Heater', 'Filter', 'Light', 'Pump', 'Other']
 
 
-def create_app():
+def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
 
     # ── Configuration ─────────────────────────────────────────────────────────
     os.makedirs(app.instance_path, exist_ok=True)
-    app.config['SECRET_KEY'] = 'mason-aquatics-secret-change-in-production'
+    app.config['SECRET_KEY'] = os.environ.get(
+        'MASON_SECRET_KEY', 'mason-aquatics-secret-change-in-production')
     app.config['SQLALCHEMY_DATABASE_URI'] = (
         f"sqlite:///{os.path.join(app.instance_path, 'mason_aquatics.db')}"
     )
@@ -44,6 +45,10 @@ def create_app():
     app.config['GENERATED_FOLDER'] = os.path.join(app.root_path, 'static', 'generated')
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max upload
     app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
+    # Tests pass an isolated DB / upload folder so real data is never touched
+    if test_config:
+        app.config.update(test_config)
 
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     os.makedirs(app.config['GENERATED_FOLDER'], exist_ok=True)
@@ -111,10 +116,15 @@ def init_db(app):
             if not Tank.query.filter_by(tank_idc=idc).first():
                 db.session.add(Tank(tank_idc=idc))
         db.session.commit()
-        print('✓ Database initialised successfully.')
+        print('[OK] Database initialised successfully.')  # ASCII: safe on any Windows console
 
 
 if __name__ == '__main__':
     app = create_app()
     init_db(app)
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Debug mode exposes the Werkzeug debugger (code execution) to anyone on the
+    # LAN when bound to 0.0.0.0, so it is OFF unless explicitly enabled.
+    #   Windows:  set MASON_DEBUG=1      Linux/Pi:  MASON_DEBUG=1 python app.py
+    debug = os.environ.get('MASON_DEBUG', '').lower() in ('1', 'true', 'yes')
+    port  = int(os.environ.get('MASON_PORT', '5000'))
+    app.run(debug=debug, host='0.0.0.0', port=port)

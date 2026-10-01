@@ -143,6 +143,7 @@ $dirs = @(
     "$InstallDir\templates\articles",
     "$InstallDir\static\uploads\photos",
     "$InstallDir\static\generated",
+    "$InstallDir\static\vendor",
     "$InstallDir\instance"
 )
 foreach ($d in $dirs) {
@@ -153,11 +154,7 @@ Write-Ok "Directory structure created"
 # ===========================================================================
 # 5. COPY PROJECT FILES
 #
-# Every file has an explicit source name mapped to its exact destination.
-# Source names use the prefixed flat names (e.g. species_list.html) AND
-# the natural subfolder paths (e.g. templates\species\list.html).
-# Both passes run; the subfolder pass runs second so if both exist the
-# already-organised file wins.
+# Copies the organised project tree (routes\, templates\, static\vendor\).
 # ===========================================================================
 Write-Header "Step 5 - Copying Project Files"
 
@@ -182,132 +179,37 @@ function Copy-One {
     return $false
 }
 
-# --- Pass 1: flat prefixed filenames in the source directory ----------------
-# Format: @(source-flat-name, destination-relative-to-InstallDir)
-$flatMappings = @(
-    # Root Python
-    @("app.py",                   "app.py"),
-    @("models.py",                "models.py"),
+# --- Copy the canonical project tree ----------------------------------------
+# The repo's mason_aquatics\ folder is the single source of truth:
+#   app.py, models.py, requirements.txt, routes\, templates\, static\vendor\, tests\
+# Whole folders are copied recursively so new templates/routes are never
+# missed. The database (instance\) and user uploads (static\uploads\) are
+# never touched, so re-running this installer is a safe in-place upgrade.
 
-    # Routes (flat copies)
-    @("main.py",                  "routes\main.py"),
-    @("species.py",               "routes\species.py"),
-    @("tanks.py",                 "routes\tanks.py"),
-    @("breeding.py",              "routes\breeding.py"),
-    @("sales.py",                 "routes\sales.py"),
-    @("gallery.py",               "routes\gallery.py"),
-    @("public.py",                "routes\public.py"),
-    @("labels.py",                "routes\labels.py"),
-    @("reports.py",               "routes\reports.py"),
-    @("costs.py",                 "routes\costs.py"),
-    @("articles.py",              "routes\articles.py"),
-
-    # Base templates (no prefix needed, unique names)
-    @("base.html",                "templates\base.html"),
-    @("dashboard.html",           "templates\dashboard.html"),
-    @("settings.html",            "templates\settings.html"),
-
-    # Species templates (prefixed)
-    @("species_list.html",        "templates\species\list.html"),
-    @("species_form.html",        "templates\species\form.html"),
-    @("species_detail.html",      "templates\species\detail.html"),
-
-    # Tank templates (prefixed)
-    @("tanks_list.html",          "templates\tanks\list.html"),
-    @("tanks_detail.html",        "templates\tanks\detail.html"),
-    @("tanks_edit.html",          "templates\tanks\edit.html"),
-
-    # Breeding templates (prefixed)
-    @("breeding_list.html",       "templates\breeding\list.html"),
-    @("breeding_form.html",       "templates\breeding\form.html"),
-
-    # Sales templates (prefixed)
-    @("sales_list.html",          "templates\sales\list.html"),
-    @("sales_form.html",          "templates\sales\form.html"),
-    @("customer_list.html",       "templates\sales\customer_list.html"),
-    @("customer_detail.html",     "templates\sales\customer_detail.html"),
-    @("customer_form.html",       "templates\sales\customer_form.html"),
-
-    # Gallery (prefixed)
-    @("gallery_index.html",       "templates\gallery\index.html"),
-
-    # Public (prefixed)
-    @("public_species.html",      "templates\public\species.html"),
-
-    # Labels (prefixed)
-    @("labels_index.html",        "templates\labels\index.html"),
-
-    # Reports (unique name)
-    @("available_list.html",      "templates\reports\available_list.html"),
-
-    # Costs (prefixed)
-    @("cost_dashboard.html",      "templates\costs\dashboard.html"),
-    @("feed_log.html",            "templates\costs\feed_log.html"),
-    @("power.html",               "templates\costs\power.html"),
-
-    # Articles (prefixed)
-    @("articles_list.html",       "templates\articles\list.html"),
-    @("articles_form.html",       "templates\articles\form.html"),
-    @("articles_detail.html",     "templates\articles\detail.html")
-)
-
-foreach ($pair in $flatMappings) {
-    $src = Join-Path $ScriptDir $pair[0]
-    $dst = Join-Path $InstallDir $pair[1]
-    Copy-One $src $dst | Out-Null
+foreach ($f in @("app.py", "models.py", "requirements.txt")) {
+    Copy-One (Join-Path $ScriptDir $f) (Join-Path $InstallDir $f) | Out-Null
 }
 
-# --- Pass 2: files already inside routes\ or templates\ subfolders ----------
-$subMappings = @(
-    @("routes\main.py",                          "routes\main.py"),
-    @("routes\species.py",                       "routes\species.py"),
-    @("routes\tanks.py",                         "routes\tanks.py"),
-    @("routes\breeding.py",                      "routes\breeding.py"),
-    @("routes\sales.py",                         "routes\sales.py"),
-    @("routes\gallery.py",                       "routes\gallery.py"),
-    @("routes\public.py",                        "routes\public.py"),
-    @("routes\labels.py",                        "routes\labels.py"),
-    @("routes\reports.py",                       "routes\reports.py"),
-    @("routes\costs.py",                         "routes\costs.py"),
-    @("routes\articles.py",                      "routes\articles.py"),
-
-    @("templates\base.html",                     "templates\base.html"),
-    @("templates\dashboard.html",                "templates\dashboard.html"),
-    @("templates\settings.html",                 "templates\settings.html"),
-
-    @("templates\species\list.html",             "templates\species\list.html"),
-    @("templates\species\form.html",             "templates\species\form.html"),
-    @("templates\species\detail.html",           "templates\species\detail.html"),
-
-    @("templates\tanks\list.html",               "templates\tanks\list.html"),
-    @("templates\tanks\detail.html",             "templates\tanks\detail.html"),
-    @("templates\tanks\edit.html",               "templates\tanks\edit.html"),
-
-    @("templates\breeding\list.html",            "templates\breeding\list.html"),
-    @("templates\breeding\form.html",            "templates\breeding\form.html"),
-
-    @("templates\sales\list.html",               "templates\sales\list.html"),
-    @("templates\sales\form.html",               "templates\sales\form.html"),
-    @("templates\sales\customer_list.html",      "templates\sales\customer_list.html"),
-    @("templates\sales\customer_detail.html",    "templates\sales\customer_detail.html"),
-    @("templates\sales\customer_form.html",      "templates\sales\customer_form.html"),
-
-    @("templates\gallery\index.html",            "templates\gallery\index.html"),
-    @("templates\public\species.html",           "templates\public\species.html"),
-    @("templates\labels\index.html",             "templates\labels\index.html"),
-    @("templates\reports\available_list.html",   "templates\reports\available_list.html"),
-    @("templates\costs\dashboard.html",          "templates\costs\dashboard.html"),
-    @("templates\costs\feed_log.html",           "templates\costs\feed_log.html"),
-    @("templates\costs\power.html",              "templates\costs\power.html"),
-    @("templates\articles\list.html",            "templates\articles\list.html"),
-    @("templates\articles\form.html",            "templates\articles\form.html"),
-    @("templates\articles\detail.html",          "templates\articles\detail.html")
-)
-
-foreach ($pair in $subMappings) {
-    $src = Join-Path $ScriptDir $pair[0]
-    $dst = Join-Path $InstallDir $pair[1]
-    Copy-One $src $dst | Out-Null
+foreach ($folder in @("routes", "templates", "static\vendor", "tests")) {
+    $srcRoot = Join-Path $ScriptDir $folder
+    if (-not (Test-Path $srcRoot)) {
+        Write-Err "Missing folder in source: $folder"
+        continue
+    }
+    $srcRootFull = (Resolve-Path $srcRoot).Path
+    Get-ChildItem -Path $srcRootFull -Recurse -File |
+        Where-Object { $_.FullName -notmatch '\\__pycache__\\' } |
+        ForEach-Object {
+            $rel = $_.FullName.Substring($srcRootFull.Length).TrimStart('\')
+            $dst = Join-Path (Join-Path $InstallDir $folder) $rel
+            $dstDir = Split-Path $dst -Parent
+            if (-not (Test-Path $dstDir)) {
+                New-Item -ItemType Directory -Path $dstDir -Force | Out-Null
+            }
+            Copy-Item -Path $_.FullName -Destination $dst -Force
+        }
+    $count = @(Get-ChildItem -Path $srcRootFull -Recurse -File).Count
+    Write-Ok "$folder\  ($count files)"
 }
 
 # Sanity check - warn about any critical missing files
@@ -318,7 +220,10 @@ $critical = @(
     "routes\species.py",
     "routes\tanks.py",
     "templates\base.html",
-    "templates\dashboard.html"
+    "templates\dashboard.html",
+    "static\vendor\chartjs\chart.umd.min.js",
+    "static\vendor\quill\quill.min.js",
+    "static\vendor\fontawesome\css\all.min.css"
 )
 $missing = @()
 foreach ($f in $critical) {
@@ -349,7 +254,8 @@ if (Test-Path $reqSrc) {
         "Flask-SQLAlchemy>=3.1.0",
         "Pillow>=10.0.0",
         "reportlab>=4.0.0",
-        "qrcode[pil]>=7.4.0"
+        "qrcode[pil]>=7.4.0",
+        "SQLAlchemy>=2.0.0"
     )
     $reqLines | Set-Content (Join-Path $InstallDir "requirements.txt") -Encoding UTF8
     Write-Ok "Generated default requirements.txt"

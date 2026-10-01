@@ -316,7 +316,7 @@
     {% if is_edit %}
     <form method="POST"
           action="{{ url_for('species.delete_species', species_id=species.id) }}"
-          onsubmit="return confirm('Delete {{ species.common_name | replace(\"'\", \"\\'\") }}? This cannot be undone.')"
+          onsubmit='return confirm({{ ("Delete " ~ species.common_name ~ "? This cannot be undone.") | tojson }})'
           style="margin-right:auto;">
       <button type="submit" class="btn btn-danger btn-sm">
         <i class="fa-solid fa-trash"></i> Delete Species

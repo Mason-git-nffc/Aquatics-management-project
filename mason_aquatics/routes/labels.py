@@ -18,9 +18,16 @@ from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
 from reportlab.lib.utils import ImageReader
-from models import Species
+from models import db, Species
 
 labels_bp = Blueprint('labels', __name__)
+
+
+def _fmt_num(val):
+    """24.0 -> '24', 24.5 -> '24.5', None -> '?'"""
+    if val is None:
+        return '?'
+    return f'{val:g}'
 
 # ── Label dimensions — 99×57mm (Avery L7636 style) ───────────────────────────
 LABEL_W = 99 * mm
@@ -216,9 +223,9 @@ def generate_label(species_id):
     c.setFillColor(colors.HexColor('#222222'))
     c.setFont('Helvetica', 8)
     if species.min_temp_c is not None or species.max_temp_c is not None:
-        mn = int(species.min_temp_c) if species.min_temp_c is not None else '?'
-        mx = int(species.max_temp_c) if species.max_temp_c is not None else '?'
-        c.drawString(text_x, text_y, f'\u26a1  {mn}°C – {mx}°C')
+        mn = _fmt_num(species.min_temp_c)
+        mx = _fmt_num(species.max_temp_c)
+        c.drawString(text_x, text_y, f'Temp  {mn}°C – {mx}°C')
         text_y -= 5 * mm
 
     # pH
@@ -246,7 +253,7 @@ def generate_label(species_id):
 @labels_bp.route('/label/batch', methods=['POST'])
 def batch_labels():
     """Generate a single PDF containing multiple labels (one per page)."""
-    ids = request.form.getlist('species_ids')
+    ids = [x for x in request.form.getlist('species_ids') if x.strip().isdigit()]
     if not ids:
         flash('Please select at least one species.', 'warning')
         return redirect(url_for('labels.list_labels'))
@@ -257,14 +264,16 @@ def batch_labels():
 
     c = canvas.Canvas(pdf_path, pagesize=(LABEL_W, LABEL_H))
 
-    for i, sid_str in enumerate(ids):
+    pages = 0
+    for sid_str in ids:
         sid     = int(sid_str)
-        species = Species.query.get(sid)
+        species = db.session.get(Species, sid)
         if not species:
             continue
 
-        if i > 0:
+        if pages > 0:
             c.showPage()
+        pages += 1
 
         # ── Re-use single-label drawing logic via inner call ──────────────────
         # Build QR
@@ -350,9 +359,9 @@ def batch_labels():
         c.setFillColor(colors.HexColor('#222222'))
         c.setFont('Helvetica', 8)
         if species.min_temp_c is not None or species.max_temp_c is not None:
-            mn = int(species.min_temp_c) if species.min_temp_c is not None else '?'
-            mx = int(species.max_temp_c) if species.max_temp_c is not None else '?'
-            c.drawString(text_x, text_y, f'{mn}\xb0C \u2013 {mx}\xb0C')
+            mn = _fmt_num(species.min_temp_c)
+            mx = _fmt_num(species.max_temp_c)
+            c.drawString(text_x, text_y, f'Temp  {mn}\xb0C \u2013 {mx}\xb0C')
             text_y -= 5 * mm
         if species.ideal_ph is not None:
             c.drawString(text_x, text_y, f'pH  {species.ideal_ph}')
@@ -361,6 +370,10 @@ def batch_labels():
             c.setFont('Helvetica', 7)
             c.setFillColor(colors.HexColor('#555555'))
             c.drawString(text_x, text_y, species.reproduction_type)
+
+    if pages == 0:
+        flash('None of the selected species could be found.', 'warning')
+        return redirect(url_for('labels.list_labels'))
 
     c.save()
 

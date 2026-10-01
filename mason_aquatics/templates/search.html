@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Search{% if q %}: {{ q }}{% endif %} — Mason Aquatics{% endblock %}
+
+{% block head %}
+<style>
+  .search-section { margin-bottom: 1.25rem; }
+  .search-section h2 {
+    font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-muted); margin: 0 0 0.5rem;
+  }
+  .search-row {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.65rem 1rem; border-bottom: 1px solid var(--border);
+    text-decoration: none; color: var(--text-primary);
+  }
+  .search-row:last-child { border-bottom: none; }
+  .search-row:hover { background: var(--bg-input); }
+  .search-row i { color: var(--accent); width: 1.1rem; text-align: center; }
+  .search-row .main { font-weight: 600; color: var(--text-heading); }
+  .search-row .sub  { color: var(--text-muted); font-size: 0.82rem; }
+  .search-row .meta { margin-left: auto; color: var(--text-muted); font-size: 0.8rem; white-space: nowrap; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1><i class="fa-solid fa-magnifying-glass" style="color:var(--accent)"></i> Search</h1>
+    <div class="breadcrumb">
+      {% if q %}{{ total }} result{{ 's' if total != 1 }} for “{{ q }}”{% else %}Type in the search box above{% endif %}
+    </div>
+  </div>
+</div>
+
+{% if q and total == 0 %}
+<div class="card" style="text-align:center; padding:2.5rem; color:var(--text-muted);">
+  <i class="fa-solid fa-fish-fins" style="font-size:2rem; opacity:0.4;"></i>
+  <p style="margin-top:0.75rem;">Nothing matched “{{ q }}”.</p>
+</div>
+{% endif %}
+
+{% if results.species %}
+<div class="search-section">
+  <h2>Species ({{ results.species | length }})</h2>
+  <div class="card" style="padding:0; overflow:hidden;">
+    {% for s in results.species %}
+    <a class="search-row" href="{{ url_for('species.detail', species_id=s.id) }}">
+      <i class="fa-solid fa-fish"></i>
+      <span><span class="main">{{ s.common_name }}</span>
+        {% if s.scientific_name %}<span class="sub"><em>{{ s.scientific_name }}</em></span>{% endif %}</span>
+      <span class="meta">{{ s.tank_idc or '' }} · {{ s.current_stock }} in stock</span>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if results.tanks %}
+<div class="search-section">
+  <h2>Tanks ({{ results.tanks | length }})</h2>
+  <div class="card" style="padding:0; overflow:hidden;">
+    {% for t in results.tanks %}
+    <a class="search-row" href="{{ url_for('tanks.detail', tank_idc=t.tank_idc) }}">
+      <i class="fa-solid fa-water"></i>
+      <span class="main">{{ t.tank_idc }}</span>
+      <span class="sub">{{ t.location or '' }}</span>
+      <span class="meta">{% if t.volume_litres %}{{ '%g' | format(t.volume_litres) }} L{% endif %}</span>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if results.customers %}
+<div class="search-section">
+  <h2>Customers ({{ results.customers | length }})</h2>
+  <div class="card" style="padding:0; overflow:hidden;">
+    {% for c in results.customers %}
+    <a class="search-row" href="{{ url_for('sales.customer_detail', customer_id=c.id) }}">
+      <i class="fa-solid fa-user"></i>
+      <span class="main">{{ c.name }}</span>
+      <span class="sub">{{ c.phone or '' }} {{ c.email or '' }}</span>
+      <span class="meta">£{{ '%.2f' | format(c.store_credit_gbp or 0) }} credit</span>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if results.articles %}
+<div class="search-section">
+  <h2>Documentation ({{ results.articles | length }})</h2>
+  <div class="card" style="padding:0; overflow:hidden;">
+    {% for a in results.articles %}
+    <a class="search-row" href="{{ url_for('articles.article_detail', article_id=a.id) }}">
+      <i class="fa-solid fa-book-open"></i>
+      <span class="main">{{ a.title }}</span>
+      <span class="meta">{{ a.updated_at.strftime('%d/%m/%Y') if a.updated_at else '' }}</span>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
